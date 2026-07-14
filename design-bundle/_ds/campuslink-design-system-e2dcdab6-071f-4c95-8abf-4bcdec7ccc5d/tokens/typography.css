@@ -1,0 +1,65 @@
+/* CampusLink — Typography tokens
+   Display voice: Geist (Vercel, OFL) at 600 with negative tracking.
+   Body/UI voice: Inter. Code: JetBrains Mono. */
+:root {
+  --font-display: "Geist", "Inter", -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+  --font-sans: "Inter", -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+  --font-mono: "JetBrains Mono", ui-monospace, SFMono-Regular, Menlo, monospace;
+
+  /* Display (Geist, 600, negative tracking) — sizes @kind spacing (px) */
+  --display-xl-size: 64px;
+  --display-lg-size: 48px;
+  --display-md-size: 36px;
+  --display-sm-size: 28px;
+  --title-lg-size: 22px;
+  --title-md-size: 18px;
+  --title-sm-size: 16px;
+  --body-md-size: 16px;
+  --body-sm-size: 14px;
+  --caption-size: 13px;
+  --code-size: 14px;
+  --button-size: 14px;
+  --nav-size: 14px;
+
+  /* Line heights (unitless ratios) */
+  --display-xl-line: 1.05; /* @kind other */
+  --display-lg-line: 1.1;  /* @kind other */
+  --display-md-line: 1.15; /* @kind other */
+  --display-sm-line: 1.2;  /* @kind other */
+  --title-lg-line: 1.3;    /* @kind other */
+  --title-md-line: 1.4;    /* @kind other */
+  --title-sm-line: 1.4;    /* @kind other */
+  --body-md-line: 1.5;     /* @kind other */
+  --body-sm-line: 1.5;     /* @kind other */
+  --caption-line: 1.4;     /* @kind other */
+  --code-line: 1.5;        /* @kind other */
+  --button-line: 1;        /* @kind other */
+  --nav-line: 1.4;         /* @kind other */
+
+  /* Letter spacing (tracking) */
+  --display-xl-track: -2px;   /* @kind other */
+  --display-lg-track: -1.5px; /* @kind other */
+  --display-md-track: -1px;   /* @kind other */
+  --display-sm-track: -0.5px; /* @kind other */
+  --title-lg-track: -0.3px;   /* @kind other */
+  --title-md-track: 0;        /* @kind other */
+  --title-sm-track: 0;        /* @kind other */
+
+  /* Weights */
+  --weight-regular: 400; /* @kind other */
+  --weight-medium: 500;  /* @kind other */
+  --weight-semibold: 600; /* @kind other */
+}
+
+/* Reusable type classes */
+.cl-display-xl { font-family: var(--font-display); font-size: var(--display-xl-size); font-weight: 600; line-height: var(--display-xl-line); letter-spacing: var(--display-xl-track); color: var(--ink); }
+.cl-display-lg { font-family: var(--font-display); font-size: var(--display-lg-size); font-weight: 600; line-height: var(--display-lg-line); letter-spacing: var(--display-lg-track); color: var(--ink); }
+.cl-display-md { font-family: var(--font-display); font-size: var(--display-md-size); font-weight: 600; line-height: var(--display-md-line); letter-spacing: var(--display-md-track); color: var(--ink); }
+.cl-display-sm { font-family: var(--font-display); font-size: var(--display-sm-size); font-weight: 600; line-height: var(--display-sm-line); letter-spacing: var(--display-sm-track); color: var(--ink); }
+.cl-title-lg { font-family: var(--font-sans); font-size: var(--title-lg-size); font-weight: 600; line-height: var(--title-lg-line); letter-spacing: var(--title-lg-track); color: var(--ink); }
+.cl-title-md { font-family: var(--font-sans); font-size: var(--title-md-size); font-weight: 600; line-height: var(--title-md-line); color: var(--ink); }
+.cl-title-sm { font-family: var(--font-sans); font-size: var(--title-sm-size); font-weight: 600; line-height: var(--title-sm-line); color: var(--ink); }
+.cl-body-md { font-family: var(--font-sans); font-size: var(--body-md-size); font-weight: 400; line-height: var(--body-md-line); color: var(--body); }
+.cl-body-sm { font-family: var(--font-sans); font-size: var(--body-sm-size); font-weight: 400; line-height: var(--body-sm-line); color: var(--body); }
+.cl-caption { font-family: var(--font-sans); font-size: var(--caption-size); font-weight: 500; line-height: var(--caption-line); color: var(--muted); }
+.cl-code { font-family: var(--font-mono); font-size: var(--code-size); font-weight: 400; line-height: var(--code-line); }

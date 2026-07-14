@@ -1,0 +1,55 @@
+/* CampusLink — Color tokens
+   Near-monochrome brand: white canvas, near-black actions, scarce accents. */
+:root {
+  /* Brand / Action */
+  --primary: #111111;
+  --primary-active: #242424;
+  --primary-disabled: #e5e7eb;
+
+  /* Text */
+  --ink: #111111;
+  --body: #374151;
+  --muted: #6b7280;
+  --muted-soft: #898989;
+  --on-primary: #ffffff;
+  --on-dark: #ffffff;
+  --on-dark-soft: #a1a1aa;
+
+  /* Surfaces */
+  --canvas: #ffffff;
+  --surface-soft: #f8f9fa;
+  --surface-card: #f5f5f5;
+  --surface-strong: #e5e7eb;
+  --surface-dark: #101010;
+  --surface-dark-elevated: #1a1a1a;
+
+  /* Lines */
+  --hairline: #e5e7eb;
+  --hairline-soft: #f3f4f6;
+
+  /* Accent (used sparingly) */
+  --brand-accent: #3b82f6;
+
+  /* Badge pastels (avatar fills + category tags only) */
+  --badge-orange: #fb923c;
+  --badge-pink: #ec4899;
+  --badge-violet: #8b5cf6;
+  --badge-emerald: #34d399;
+
+  /* Semantic */
+  --success: #10b981;
+  --warning: #f59e0b;
+  --error: #ef4444;
+
+  /* Semantic aliases */
+  --text-heading: var(--ink);
+  --text-body: var(--body);
+  --text-muted: var(--muted);
+  --text-caption: var(--muted-soft);
+  --surface-page: var(--canvas);
+  --surface-raised: var(--surface-card);
+  --border-default: var(--hairline);
+  --border-subtle: var(--hairline-soft);
+  --action-primary: var(--primary);
+  --action-primary-press: var(--primary-active);
+}
