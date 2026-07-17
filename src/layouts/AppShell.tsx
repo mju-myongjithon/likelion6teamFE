@@ -11,7 +11,7 @@ export type AppNavId = "home" | "my" | "chat" | "mypage";
 
 interface NavItem { id: AppNavId; label: string; icon: string; to: string; }
 
-export const APP_NAV: NavItem[] = [
+const APP_NAV: NavItem[] = [
   { id: "home", label: "둘러보기", icon: "compass", to: "/home" },
   { id: "my", label: "내 모임", icon: "users", to: "/my-groups" },
   { id: "chat", label: "채팅", icon: "message-circle", to: "/chat" },

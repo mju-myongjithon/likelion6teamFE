@@ -10,6 +10,7 @@ import { Button } from "../components/ds/actions/Button";
 import { Icon } from "../components/ds/foundations/Icon";
 import { getMyProfile } from "../api/profileApi";
 import { getListings, type StudyListingItem, type HackathonListingItem } from "../api/listingApi";
+import { getRecommendations } from "../api/recommendationApi";
 
 const CATEGORIES = ["전체", "스터디", "해커톤(대회)"];
 
@@ -21,6 +22,7 @@ export type MeetupData = Omit<MeetupCardProps, "style"> & {
 
 // 참고: 더 이상 사용하지 않지만, 다른 파일(GroupDetailPage 등)에서 아직 참조하고 있어서 남겨둠.
 // 상세 페이지도 API 연결되면 이 배열은 완전히 제거해도 됨.
+// eslint-disable-next-line react-refresh/only-export-components
 export const MEETUPS: MeetupData[] = [
   {
     id: "m1",
@@ -75,6 +77,7 @@ export type EventData = Omit<EventCardProps, "style" | "onClick"> & {
 };
 
 // 참고: 더 이상 사용하지 않지만, 다른 파일(EventDetailPage 등)에서 아직 참조하고 있어서 남겨둠.
+// eslint-disable-next-line react-refresh/only-export-components
 export const EVENTS: EventData[] = [
   {
     id: "e1",
@@ -130,6 +133,7 @@ export function HomePage(): JSX.Element {
   const [userName, setUserName] = React.useState<string>("");
   const [apiMeetups, setApiMeetups] = React.useState<MeetupData[]>([]);
   const [apiEvents, setApiEvents] = React.useState<EventData[]>([]);
+  const [recommendationReasons, setRecommendationReasons] = React.useState<string[]>([]);
   const [loadingListings, setLoadingListings] = React.useState(true);
 
   React.useEffect(() => {
@@ -139,36 +143,46 @@ export function HomePage(): JSX.Element {
   }, []);
 
   React.useEffect(() => {
-    getListings()
-      .then((res) => {
-        const studyItems = res.data.filter(
+    Promise.all([getListings(), getRecommendations()])
+      .then(([listingsResponse, recommendationsResponse]) => {
+        const studyItems = listingsResponse.data.filter(
           (item): item is StudyListingItem => item.category === "STUDY"
         );
-        const hackathonItems = res.data.filter(
+        const hackathonItems = listingsResponse.data.filter(
           (item): item is HackathonListingItem => item.category === "HACKATHON"
         );
+        const studiesById = new Map(studyItems.map((item) => [item.groupId, item]));
+        const hackathonsById = new Map(hackathonItems.map((item) => [item.eventId, item]));
 
         setApiMeetups(
-          studyItems.map((item) => ({
-            id: String(item.groupId),
-            title: item.title,
-            category: "스터디",
-            categoryTone: "violet",
-            when: item.meetingRule,
-            where: item.location,
-            host: "",
-            members: item.currentMemberCount,
-            capacity: item.maxMemberCount,
-            matchScore: 0,
-            description: "",
-            matchReason: "",
-          }))
+          recommendationsResponse.data.flatMap((recommendation) => {
+            if (recommendation.category !== "STUDY") return [];
+            const item = studiesById.get(recommendation.targetId);
+            if (!item) return [];
+            return [{
+              id: String(item.groupId),
+              title: item.title,
+              category: "스터디",
+              categoryTone: "violet",
+              when: item.meetingRule,
+              where: item.location,
+              host: "",
+              members: item.currentMemberCount,
+              capacity: item.maxMemberCount,
+              matchScore: recommendation.score,
+              description: "",
+              matchReason: recommendation.reasons.join(" "),
+            }];
+          })
         );
 
         setApiEvents(
-          hackathonItems.map((item) => {
+          recommendationsResponse.data.flatMap((recommendation) => {
+            if (recommendation.category !== "HACKATHON") return [];
+            const item = hackathonsById.get(recommendation.targetId);
+            if (!item) return [];
             const startDate = new Date(item.startsAt);
-            return {
+            return [{
               id: String(item.eventId),
               month: `${startDate.getMonth() + 1}월`,
               day: String(startDate.getDate()),
@@ -177,17 +191,18 @@ export function HomePage(): JSX.Element {
               venue: item.location,
               tag: "해커톤",
               tagTone: "orange",
-              matchScore: 0,
+              matchScore: recommendation.score,
               attendance: "",
               description: "",
-              matchReason: "",
+              matchReason: recommendation.reasons.join(" "),
               features: [],
               schedule: [],
-            };
+            }];
           })
         );
+        setRecommendationReasons(recommendationsResponse.data[0]?.reasons ?? []);
       })
-      .catch((err) => console.error("목록 조회 실패:", err))
+      .catch((err) => console.error("추천 목록 조회 실패:", err))
       .finally(() => setLoadingListings(false));
   }, []);
 
@@ -203,7 +218,9 @@ export function HomePage(): JSX.Element {
           안녕하세요, {userName || "..."}님
         </h1>
         <p style={{ margin: "0 0 var(--space-lg)", fontFamily: "var(--font-sans)", fontSize: 16, color: "var(--body)" }}>성향과 목적을 분석해 딱 맞는 모임과 행사를 골랐어요.</p>
-        <Callout style={{ marginBottom: 24 }}>관심사(AI·개발·창업)와 주말 오후 시간대가 잘 맞는 항목을 우선 배치했어요.</Callout>
+        {recommendationReasons.length > 0 && (
+          <Callout style={{ marginBottom: 24 }}>{recommendationReasons.join(" ")}</Callout>
+        )}
 
         <div style={{ marginBottom: 20 }}>
           <NavPillGroup items={CATEGORIES} value={cat} onChange={setCat} />
@@ -216,15 +233,15 @@ export function HomePage(): JSX.Element {
           </Button>
         </div>
         <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fill, minmax(calc(var(--space-section) * 3 - var(--space-xs)), 1fr))", gap: 20, marginBottom: 36, alignItems: "stretch" }}>
-          {meetups.map(({ id, description, matchReason, ...m }) => (
-            <div key={id} onClick={() => navigate(`/groups/${id}`)} style={{ cursor: "pointer", height: "100%" }}><MeetupCard {...m} style={{ height: "100%" }} /></div>
+          {meetups.map((meetup) => (
+            <div key={meetup.id} onClick={() => navigate(`/groups/${meetup.id}`)} style={{ cursor: "pointer", height: "100%" }}><MeetupCard {...meetup} style={{ height: "100%" }} /></div>
           ))}
           {!loadingListings && meetups.length === 0 && <div style={{ color: "var(--muted)", fontFamily: "var(--font-sans)", padding: 20 }}>해당 카테고리의 모임이 없어요.</div>}
         </div>
 
         <SectionTitle>추천 행사</SectionTitle>
         <div style={{ display: "flex", flexDirection: "column", gap: 12 }}>
-          {apiEvents.map(({ id, description, matchReason, features, schedule, ...e }) => <EventCard key={id} {...e} onClick={() => navigate(`/events/${id}`)} />)}
+          {apiEvents.map((event) => <EventCard key={event.id} {...event} onClick={() => navigate(`/events/${event.id}`)} />)}
           {!loadingListings && apiEvents.length === 0 && <div style={{ color: "var(--muted)", fontFamily: "var(--font-sans)", padding: 20 }}>등록된 행사가 없어요.</div>}
         </div>
       </div>

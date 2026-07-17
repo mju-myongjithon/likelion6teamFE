@@ -1,6 +1,7 @@
 // React 19's types moved the JSX namespace under React.JSX instead of the
 // global JSX namespace. The design-bundle components annotate return types as
 // bare `JSX.Element`, so re-expose the namespace globally.
+/* eslint-disable @typescript-eslint/no-empty-object-type */
 declare global {
   namespace JSX {
     interface Element extends React.JSX.Element {}
