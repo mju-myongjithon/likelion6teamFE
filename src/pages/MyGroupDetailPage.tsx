@@ -1,4 +1,5 @@
 import React from "react";
+import axios from "axios";
 import { useNavigate, useParams } from "react-router-dom";
 import { AppShell } from "../layouts/AppShell";
 import { Button } from "../components/ds/actions/Button";
@@ -6,6 +7,12 @@ import { Badge } from "../components/ds/display/Badge";
 import { Avatar, type AvatarTone } from "../components/ds/display/Avatar";
 import { Icon } from "../components/ds/foundations/Icon";
 import { leaveGroup } from "../api/groupApi";
+
+function apiErrorMessage(error: unknown, fallback: string): string {
+  return axios.isAxiosError<{ message?: string }>(error)
+    ? error.response?.data?.message ?? fallback
+    : fallback;
+}
 
 interface Member { name: string; tone: AvatarTone; role: string; }
 const MEMBERS: Member[] = [
@@ -73,8 +80,8 @@ export function MyGroupDetailPage(): JSX.Element {
     try {
       await leaveGroup(groupId);
       navigate("/my-groups");
-    } catch (err: any) {
-      setLeaveError(err?.response?.data?.message ?? "탈퇴에 실패했습니다.");
+    } catch (err: unknown) {
+      setLeaveError(apiErrorMessage(err, "탈퇴에 실패했습니다."));
     } finally {
       setLeaveLoading(false);
     }

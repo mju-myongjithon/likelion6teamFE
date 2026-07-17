@@ -10,9 +10,22 @@ import {
   type ChatRoomSummary,
 } from "../api/chatApi";
 import { ChatSocket } from "../api/chatSocket";
+import {
+  cancelMeetup,
+  cancelMeetupVote,
+  confirmMeetup,
+  createMeetup,
+  getMeetups,
+  voteMeetupOption,
+  type CreateMeetupRequest,
+  type Meetup,
+} from "../api/meetupApi";
 import { Button } from "../components/ds/actions/Button";
 import { ChatMessage } from "../components/ds/chat/ChatMessage";
 import { ChatThreadItem } from "../components/ds/chat/ChatThreadItem";
+import { ConfirmedMeetupCard } from "../components/ds/chat/ConfirmedMeetupCard";
+import { MeetupModal } from "../components/ds/chat/MeetupModal";
+import { MeetupVoteCard } from "../components/ds/chat/MeetupVoteCard";
 import { Avatar, type AvatarTone } from "../components/ds/display/Avatar";
 import { Badge } from "../components/ds/display/Badge";
 import { Callout } from "../components/ds/feedback/Callout";
@@ -23,6 +36,7 @@ import { AppShell } from "../layouts/AppShell";
 const HISTORY_SIZE = 50;
 const READ_DEBOUNCE_MS = 500;
 const AVATAR_TONES: AvatarTone[] = ["violet", "pink", "emerald", "orange", "neutral"];
+const MEETUP_MARKER = /^\[\[MEETUP:(\d+)]]$/;
 
 interface ReadProgress {
   sent: number;
@@ -103,6 +117,16 @@ function errorMessage(error: unknown, fallback: string): string {
   return fallback;
 }
 
+function meetupMarkerId(content: string): number | null {
+  const match = MEETUP_MARKER.exec(content);
+  return match ? Number(match[1]) : null;
+}
+
+function chatPreview(content: string | null): string {
+  if (!content) return "아직 메시지가 없습니다.";
+  return meetupMarkerId(content) === null ? content : "새 약속 장소 투표가 생성됐어요.";
+}
+
 /** 모임 전용 실시간 채팅 화면. */
 export function ChatPage(): JSX.Element {
   const navigate = useNavigate();
@@ -122,6 +146,10 @@ export function ChatPage(): JSX.Element {
   const [messagesError, setMessagesError] = React.useState<string | null>(null);
   const [sendError, setSendError] = React.useState<string | null>(null);
   const [connected, setConnected] = React.useState(false);
+  const [meetups, setMeetups] = React.useState<Meetup[]>([]);
+  const [meetupModalOpen, setMeetupModalOpen] = React.useState(false);
+  const [meetupLoading, setMeetupLoading] = React.useState(false);
+  const [meetupError, setMeetupError] = React.useState<string | null>(null);
 
   const socketRef = React.useRef<ChatSocket | null>(null);
   const activeGroupIdRef = React.useRef<number | null>(null);
@@ -154,6 +182,20 @@ export function ChatPage(): JSX.Element {
     navigate("/login", { replace: true });
     return true;
   }, [navigate]);
+
+  const refreshMeetups = React.useCallback(async (groupId: number): Promise<void> => {
+    try {
+      const response = await getMeetups(groupId);
+      if (activeGroupIdRef.current === groupId) {
+        setMeetups(response.data);
+        setMeetupError(null);
+      }
+    } catch (error) {
+      if (!stopForUnauthorized(error) && activeGroupIdRef.current === groupId) {
+        setMeetupError(errorMessage(error, "약속 정보를 불러오지 못했습니다."));
+      }
+    }
+  }, [stopForUnauthorized]);
 
   const flushRead = React.useCallback((groupId: number): void => {
     const progress = readProgressRef.current.get(groupId);
@@ -364,13 +406,14 @@ export function ChatPage(): JSX.Element {
           return {
             ...room,
             lastMessageId: message.messageId,
-            lastMessage: message.content,
+            lastMessage: chatPreview(message.content),
             lastMessageAt: message.createdAt,
             unreadCount: active || sentByCurrentUser ? room.unreadCount : room.unreadCount + 1,
           };
         })));
         if (activeGroupIdRef.current === message.groupId) {
           setMessages((current) => mergeMessages(current, [message]));
+          if (meetupMarkerId(message.content) !== null) void refreshMeetups(message.groupId);
         }
       },
       onError: (message) => {
@@ -392,7 +435,7 @@ export function ChatPage(): JSX.Element {
       void socket.deactivate();
       socketRef.current = null;
     };
-  }, [flushRead, navigate, refreshRooms, resyncMessages]);
+  }, [flushRead, navigate, refreshMeetups, refreshRooms, resyncMessages]);
 
   React.useEffect(() => {
     socketRef.current?.setGroupIds(rooms.map((room) => room.groupId));
@@ -409,8 +452,13 @@ export function ChatPage(): JSX.Element {
     // The selected room is the external resource this effect synchronizes.
     // eslint-disable-next-line react-hooks/set-state-in-effect
     void loadLatest(activeGroupId);
-    return () => flushRead(activeGroupId);
-  }, [activeGroupId, flushRead, loadLatest, setSearchParams]);
+    void refreshMeetups(activeGroupId);
+    const meetupRefresh = window.setInterval(() => void refreshMeetups(activeGroupId), 5_000);
+    return () => {
+      window.clearInterval(meetupRefresh);
+      flushRead(activeGroupId);
+    };
+  }, [activeGroupId, flushRead, loadLatest, refreshMeetups, setSearchParams]);
 
   React.useEffect(() => {
     if (activeGroupId === null || messages.length === 0) return;
@@ -495,6 +543,51 @@ export function ChatPage(): JSX.Element {
     }
   };
 
+  const createRoomMeetup = async (request: CreateMeetupRequest): Promise<void> => {
+    if (activeGroupId === null) return;
+    setMeetupLoading(true);
+    setMeetupError(null);
+    try {
+      const response = await createMeetup(activeGroupId, request);
+      setMeetups((current) => [...current.filter((meetup) => meetup.meetupId !== response.data.meetupId), response.data]);
+      setMeetupModalOpen(false);
+    } catch (error) {
+      setMeetupError(errorMessage(error, "약속을 만들지 못했습니다."));
+    } finally {
+      setMeetupLoading(false);
+    }
+  };
+
+  const updateMeetup = (updated: Meetup): void => {
+    setMeetups((current) => current.map((meetup) => meetup.meetupId === updated.meetupId ? updated : meetup));
+  };
+
+  const runMeetupAction = async (action: () => Promise<{ data: Meetup }>): Promise<void> => {
+    setMeetupLoading(true);
+    setMeetupError(null);
+    try {
+      updateMeetup((await action()).data);
+    } catch (error) {
+      setMeetupError(errorMessage(error, "약속 상태를 변경하지 못했습니다."));
+    } finally {
+      setMeetupLoading(false);
+    }
+  };
+
+  const removeMeetup = async (meetupId: number): Promise<void> => {
+    if (activeGroupId === null) return;
+    setMeetupLoading(true);
+    setMeetupError(null);
+    try {
+      await cancelMeetup(activeGroupId, meetupId);
+      setMeetups((current) => current.filter((meetup) => meetup.meetupId !== meetupId));
+    } catch (error) {
+      setMeetupError(errorMessage(error, "약속을 취소하지 못했습니다."));
+    } finally {
+      setMeetupLoading(false);
+    }
+  };
+
   return (
     <AppShell>
       <div style={{ display: "flex", height: "100%", minHeight: 640 }}>
@@ -533,7 +626,7 @@ export function ChatPage(): JSX.Element {
                 key={room.groupId}
                 name={room.title}
                 memberCount={room.memberCount}
-                preview={room.lastMessage ?? "아직 메시지가 없습니다."}
+                preview={chatPreview(room.lastMessage)}
                 time={formatThreadTime(room.lastMessageAt)}
                 unread={room.unreadCount}
                 avatarTone={senderTone(room.groupId)}
@@ -553,7 +646,19 @@ export function ChatPage(): JSX.Element {
                   <div style={{ fontFamily: "var(--font-sans)", fontSize: 15, fontWeight: 600, color: "var(--ink)" }}>{activeRoom.title}</div>
                   <div style={{ fontFamily: "var(--font-sans)", fontSize: 12, color: "var(--muted)" }}>멤버 {activeRoom.memberCount}명</div>
                 </div>
-                <div style={{ marginLeft: "auto", display: "flex", alignItems: "center", gap: 6, fontSize: 12, color: connected ? "var(--muted)" : "var(--error)" }}>
+                <Button
+                  variant="secondary"
+                  size="sm"
+                  style={{ marginLeft: "auto" }}
+                  iconLeft={<Icon name="map-pin" size={15} />}
+                  onClick={() => {
+                    setMeetupError(null);
+                    setMeetupModalOpen(true);
+                  }}
+                >
+                  약속 잡기
+                </Button>
+                <div style={{ display: "flex", alignItems: "center", gap: 6, fontSize: 12, color: connected ? "var(--muted)" : "var(--error)" }}>
                   <span style={{ width: 7, height: 7, borderRadius: "50%", background: connected ? "var(--success, #22c55e)" : "var(--error)" }} />
                   {connected ? "실시간 연결됨" : "재연결 중"}
                 </div>
@@ -564,6 +669,7 @@ export function ChatPage(): JSX.Element {
                   <Callout>연결이 끊겼습니다. 자동으로 다시 연결하고 있으며, 빠진 메시지도 복구합니다.</Callout>
                 )}
                 {messagesError && <Callout tone="danger">{messagesError}</Callout>}
+                {meetupError && <Callout tone="danger">{meetupError}</Callout>}
                 {hasNext && !loadingMessages && (
                   <div style={{ display: "flex", justifyContent: "center" }}>
                     <Button variant="secondary" size="sm" disabled={loadingOlder} onClick={() => void loadOlder()}>
@@ -582,18 +688,46 @@ export function ChatPage(): JSX.Element {
                 {!loadingMessages && messages.map((message, index) => {
                   const previous = messages[index - 1];
                   const showDate = !previous || dateKey(previous.createdAt) !== dateKey(message.createdAt);
+                  const markerId = meetupMarkerId(message.content);
+                  const meetup = markerId === null ? null : meetups.find((candidate) => candidate.meetupId === markerId);
                   return (
                     <React.Fragment key={message.messageId}>
                       {showDate && <div style={{ textAlign: "center" }}><Badge>{formatMessageDate(message.createdAt)}</Badge></div>}
-                      <ChatMessage
-                        mine={message.senderId === currentUserId}
-                        sender={message.senderName}
-                        senderTone={senderTone(message.senderId)}
-                        hideAvatar={previous?.senderId === message.senderId && !showDate}
-                        time={formatMessageTime(message.createdAt)}
-                      >
-                        {message.content}
-                      </ChatMessage>
+                      {meetup ? (
+                        <div style={{ display: "flex", justifyContent: "center" }}>
+                          {meetup.status === "CONFIRMED" ? (
+                            <ConfirmedMeetupCard meetup={meetup} />
+                          ) : (
+                            <MeetupVoteCard
+                              meetup={meetup}
+                              loading={meetupLoading}
+                              onVote={(optionId) => {
+                                if (activeGroupId !== null) void runMeetupAction(
+                                  () => voteMeetupOption(activeGroupId, meetup.meetupId, optionId));
+                              }}
+                              onCancelVote={() => {
+                                if (activeGroupId !== null) void runMeetupAction(
+                                  () => cancelMeetupVote(activeGroupId, meetup.meetupId));
+                              }}
+                              onConfirm={() => {
+                                if (activeGroupId !== null) void runMeetupAction(
+                                  () => confirmMeetup(activeGroupId, meetup.meetupId));
+                              }}
+                              onCancel={() => void removeMeetup(meetup.meetupId)}
+                            />
+                          )}
+                        </div>
+                      ) : markerId === null ? (
+                        <ChatMessage
+                          mine={message.senderId === currentUserId}
+                          sender={message.senderName}
+                          senderTone={senderTone(message.senderId)}
+                          hideAvatar={previous?.senderId === message.senderId && !showDate}
+                          time={formatMessageTime(message.createdAt)}
+                        >
+                          {message.content}
+                        </ChatMessage>
+                      ) : null}
                     </React.Fragment>
                   );
                 })}
@@ -636,6 +770,16 @@ export function ChatPage(): JSX.Element {
           )}
         </div>
       </div>
+      {meetupModalOpen && (
+        <MeetupModal
+          loading={meetupLoading}
+          error={meetupError}
+          onClose={() => {
+            if (!meetupLoading) setMeetupModalOpen(false);
+          }}
+          onCreate={(request) => void createRoomMeetup(request)}
+        />
+      )}
     </AppShell>
   );
 }

@@ -1,4 +1,5 @@
 import React from "react";
+import axios from "axios";
 import { useNavigate, useParams } from "react-router-dom";
 import { AppShell } from "../layouts/AppShell";
 import { Button } from "../components/ds/actions/Button";
@@ -37,6 +38,12 @@ import {
   deleteGroupInquiry,
   type GroupInquiryResponse,
 } from "../api/groupInquiryApi";
+
+function apiErrorMessage(error: unknown, fallback: string): string {
+  return axios.isAxiosError<{ message?: string }>(error)
+    ? error.response?.data?.message ?? fallback
+    : fallback;
+}
 
 function formatRelativeTime(iso: string): string {
   const diffMs = Date.now() - new Date(iso).getTime();
@@ -122,7 +129,8 @@ export function GroupDetailPage(): JSX.Element {
   }, [groupId]);
 
   React.useEffect(() => {
-    refreshMembers();
+    // eslint-disable-next-line react-hooks/set-state-in-effect
+    void refreshMembers();
   }, [refreshMembers]);
 
   const [deleting, setDeleting] = React.useState(false);
@@ -136,8 +144,8 @@ export function GroupDetailPage(): JSX.Element {
     try {
       await deleteGroup(groupId);
       navigate("/home");
-    } catch (err: any) {
-      setDeleteError(err?.response?.data?.message ?? "삭제에 실패했습니다.");
+    } catch (err: unknown) {
+      setDeleteError(apiErrorMessage(err, "삭제에 실패했습니다."));
       setDeleteLoading(false);
     }
   }
@@ -168,10 +176,11 @@ export function GroupDetailPage(): JSX.Element {
 
   React.useEffect(() => {
     if (isHost) {
+      // eslint-disable-next-line react-hooks/set-state-in-effect
       setMyApplicationLoading(false);
       return;
     }
-    refreshMyApplication();
+    void refreshMyApplication();
   }, [refreshMyApplication, isHost]);
 
   async function handleApply(): Promise<void> {
@@ -182,8 +191,8 @@ export function GroupDetailPage(): JSX.Element {
       const res = await applyToGroup(groupId);
       setMyApplication(res.data);
       navigate("/apply/complete");
-    } catch (err: any) {
-      setApplyError(err?.response?.data?.message ?? "참여 신청에 실패했습니다.");
+    } catch (err: unknown) {
+      setApplyError(apiErrorMessage(err, "참여 신청에 실패했습니다."));
     } finally {
       setApplyLoading(false);
     }
@@ -195,8 +204,8 @@ export function GroupDetailPage(): JSX.Element {
     try {
       await cancelMyApplication(myApplication.applicationId);
       setMyApplication(null);
-    } catch (err: any) {
-      setApplyError(err?.response?.data?.message ?? "신청 취소에 실패했습니다.");
+    } catch (err: unknown) {
+      setApplyError(apiErrorMessage(err, "신청 취소에 실패했습니다."));
     } finally {
       setCancelLoading(false);
     }
@@ -221,7 +230,8 @@ export function GroupDetailPage(): JSX.Element {
   }, [groupId, isHost]);
 
   React.useEffect(() => {
-    refreshPendingApplications();
+    // eslint-disable-next-line react-hooks/set-state-in-effect
+    void refreshPendingApplications();
   }, [refreshPendingApplications]);
 
   async function handleApprove(applicationId: number): Promise<void> {
@@ -309,8 +319,8 @@ export function GroupDetailPage(): JSX.Element {
     try {
       const res = await recommendGroupCafes(groupId);
       setCafeResult(res.data);
-    } catch (err: any) {
-      setCafeError(err?.response?.data?.message ?? "카페 추천을 불러오지 못했습니다.");
+    } catch (err: unknown) {
+      setCafeError(apiErrorMessage(err, "카페 추천을 불러오지 못했습니다."));
     } finally {
       setCafeLoading(false);
     }
@@ -345,7 +355,8 @@ export function GroupDetailPage(): JSX.Element {
   }, [groupId]);
 
   React.useEffect(() => {
-    refreshInquiries(inquiryPage);
+    // eslint-disable-next-line react-hooks/set-state-in-effect
+    void refreshInquiries(inquiryPage);
   }, [refreshInquiries, inquiryPage]);
 
   async function handleSubmitInquiry(): Promise<void> {
@@ -363,8 +374,8 @@ export function GroupDetailPage(): JSX.Element {
       setInquiryPage(1);
       await refreshInquiries(1);
       window.setTimeout(() => setJustSubmitted(false), 2000);
-    } catch (err: any) {
-      setInquiryError(err?.response?.data?.message ?? "문의 등록에 실패했습니다.");
+    } catch (err: unknown) {
+      setInquiryError(apiErrorMessage(err, "문의 등록에 실패했습니다."));
     } finally {
       setSubmittingInquiry(false);
     }

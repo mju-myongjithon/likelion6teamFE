@@ -136,7 +136,8 @@ export function MyGroupsPage(): JSX.Element {
   }, []);
 
   React.useEffect(() => {
-    refreshApplications();
+    // eslint-disable-next-line react-hooks/set-state-in-effect
+    void refreshApplications();
   }, [refreshApplications]);
 
   async function handleCancelApplication(applicationId: number): Promise<void> {
