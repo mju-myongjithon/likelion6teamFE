@@ -1,5 +1,5 @@
 import React from "react";
-import { useNavigate } from "react-router-dom";
+import { useNavigate, useParams } from "react-router-dom";
 import { AppShell } from "../layouts/AppShell";
 import { Button } from "../components/ds/actions/Button";
 import { Badge } from "../components/ds/display/Badge";
@@ -54,6 +54,7 @@ function SectionTitle({ icon, children }: { icon: string; children?: React.React
 /** 내 모임 상세 — 일정/멤버/채팅 + 탈퇴 기능. */
 export function MyGroupDetailPage(): JSX.Element {
   const navigate = useNavigate();
+  const { groupId } = useParams<{ groupId: string }>();
   const [leaving, setLeaving] = React.useState<boolean>(false);
   return (
     <AppShell>
@@ -67,7 +68,7 @@ export function MyGroupDetailPage(): JSX.Element {
             <h1 className="cl-display-sm" style={{ margin: 0 }}>주말 알고리즘 스터디</h1>
             <div style={{ fontFamily: "var(--font-sans)", fontSize: 14, color: "var(--muted)", marginTop: 6 }}>참여 8주차 · 다음 일정 이번 주 토요일</div>
           </div>
-          <Button variant="primary" iconLeft={<Icon name="message-circle" size={16} color="var(--on-primary)" />} onClick={() => navigate("/chat")}>채팅방</Button>
+          <Button variant="primary" iconLeft={<Icon name="message-circle" size={16} color="var(--on-primary)" />} onClick={() => navigate(groupId ? `/chat?groupId=${groupId}` : "/chat")}>채팅방</Button>
         </div>
 
         <SectionTitle icon="calendar">다가오는 일정</SectionTitle>

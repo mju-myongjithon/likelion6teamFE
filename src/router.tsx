@@ -12,7 +12,6 @@ import { ApplyFailedPage } from "./pages/ApplyFailedPage";
 import { MyGroupsPage } from "./pages/MyGroupsPage";
 import { MyGroupDetailPage } from "./pages/MyGroupDetailPage";
 import { ChatPage } from "./pages/ChatPage";
-import { MeetupVotePage } from "./pages/MeetupVotePage";
 import { MyPagePage } from "./pages/MyPagePage";
 
 export const router = createBrowserRouter([
@@ -29,6 +28,5 @@ export const router = createBrowserRouter([
   { path: "/my-groups", element: <MyGroupsPage /> },
   { path: "/my-groups/:groupId", element: <MyGroupDetailPage /> },
   { path: "/chat", element: <ChatPage /> },
-  { path: "/chat/vote", element: <MeetupVotePage /> },
   { path: "/mypage", element: <MyPagePage /> },
 ]);
