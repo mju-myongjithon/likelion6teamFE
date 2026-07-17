@@ -61,7 +61,7 @@ export function LoginPage(): JSX.Element {
       <div style={{ display: "flex", flexDirection: "column", gap: 16 }}>
         <Field label="학교 이메일">
           <Input
-            placeholder="you@univ.ac.kr"
+            placeholder="you@mju.ac.kr"
             iconLeft={<Icon name="mail" size={18} />}
             value={email}
             onChange={(e: React.ChangeEvent<HTMLInputElement>) => setEmail(e.target.value)}
