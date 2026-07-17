@@ -6,7 +6,12 @@ import { Field } from "../components/ds/forms/Field";
 import { Callout } from "../components/ds/feedback/Callout";
 import { ProgressBar } from "../components/ds/feedback/ProgressBar";
 import { Icon } from "../components/ds/foundations/Icon";
-import { sendVerificationCode, verifyCode } from "../api/authApi";
+import { sendVerificationCode } from "../api/authApi";
+
+// 백엔드에 별도의 "인증코드 확인" API가 없음 (POST /api/auth/signup 에서
+// email + verificationCode를 함께 검증함). 그래서 여기서는 형식만
+// 로컬로 체크하고, 실제 검증은 마지막 회원가입 제출 시점에 이루어짐.
+const CODE_PATTERN = /^\d{6}$/;
 
 function Brand(): JSX.Element {
   return (
@@ -34,7 +39,6 @@ export function SignupPage(): JSX.Element {
   const [verified, setVerified] = React.useState<boolean>(false);
   const [error, setError] = React.useState<string | null>(null);
   const [sending, setSending] = React.useState(false);
-  const [verifying, setVerifying] = React.useState(false);
 
   const handleSendCode = async () => {
     if (!email) {
@@ -54,22 +58,20 @@ export function SignupPage(): JSX.Element {
     }
   };
 
-  const handleVerify = async () => {
+  const handleVerify = () => {
     if (!email || !verificationCode) {
       setError("이메일과 인증코드를 모두 입력해주세요.");
       return;
     }
-    setError(null);
-    setVerifying(true);
-    try {
-      await verifyCode(email, verificationCode);
-      setVerified(true);
-    } catch (err: any) {
+    if (!CODE_PATTERN.test(verificationCode)) {
       setVerified(false);
-      setError(err?.response?.data?.message ?? "인증코드가 올바르지 않습니다.");
-    } finally {
-      setVerifying(false);
+      setError("인증코드는 숫자 6자리여야 합니다.");
+      return;
     }
+    // 실제 인증코드 검증은 회원가입 제출(POST /api/auth/signup) 시점에
+    // 백엔드가 수행함. 코드가 틀리면 마지막 단계에서 에러로 안내됨.
+    setError(null);
+    setVerified(true);
   };
 
   const handleNext = () => {
@@ -117,8 +119,8 @@ export function SignupPage(): JSX.Element {
                 }}
               />
             </div>
-            <Button variant="secondary" onClick={handleVerify} disabled={verifying || verified}>
-              {verifying ? "확인 중..." : verified ? "확인됨" : "확인"}
+            <Button variant="secondary" onClick={handleVerify} disabled={verified}>
+              {verified ? "확인됨" : "확인"}
             </Button>
           </div>
         </Field>

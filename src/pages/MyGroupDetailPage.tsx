@@ -5,6 +5,7 @@ import { Button } from "../components/ds/actions/Button";
 import { Badge } from "../components/ds/display/Badge";
 import { Avatar, type AvatarTone } from "../components/ds/display/Avatar";
 import { Icon } from "../components/ds/foundations/Icon";
+import { leaveGroup } from "../api/groupApi";
 
 interface Member { name: string; tone: AvatarTone; role: string; }
 const MEMBERS: Member[] = [
@@ -22,7 +23,7 @@ const SCHEDULE: Slot[] = [
   { date: "2/15 토", title: "10주차 — 모의 코딩테스트", place: "온라인" },
 ];
 
-function LeaveModal({ onClose, onConfirm }: { onClose: () => void; onConfirm: () => void }): JSX.Element {
+function LeaveModal({ onClose, onConfirm, loading, error }: { onClose: () => void; onConfirm: () => void; loading: boolean; error: string | null }): JSX.Element {
   return (
     <div style={{ position: "fixed", inset: 0, background: "rgba(0,0,0,0.4)", display: "flex", alignItems: "center", justifyContent: "center", zIndex: 100, padding: 24 }}>
       <div style={{ background: "var(--canvas)", borderRadius: "var(--radius-xl)", padding: 28, width: "100%", maxWidth: 380, boxShadow: "var(--shadow-raised)" }}>
@@ -33,9 +34,12 @@ function LeaveModal({ onClose, onConfirm }: { onClose: () => void; onConfirm: ()
         <p style={{ margin: "0 0 var(--space-lg)", fontFamily: "var(--font-sans)", fontSize: 14, lineHeight: 1.6, color: "var(--body)" }}>
           탈퇴하면 채팅방에서 나가고 다가오는 일정이 캘린더에서 제거돼요. 다시 참여하려면 새로 신청해야 합니다.
         </p>
+        {error && <p style={{ margin: "0 0 var(--space-md)", color: "var(--danger, red)", fontSize: 13 }}>{error}</p>}
         <div style={{ display: "flex", gap: 10 }}>
-          <Button variant="secondary" size="lg" fullWidth onClick={onClose}>취소</Button>
-          <Button variant="primary" size="lg" fullWidth onClick={onConfirm} style={{ background: "var(--error)" }}>탈퇴하기</Button>
+          <Button variant="secondary" size="lg" fullWidth onClick={onClose} disabled={loading}>취소</Button>
+          <Button variant="primary" size="lg" fullWidth onClick={onConfirm} disabled={loading} style={{ background: "var(--error)" }}>
+            {loading ? "탈퇴 중..." : "탈퇴하기"}
+          </Button>
         </div>
       </div>
     </div>
@@ -56,6 +60,26 @@ export function MyGroupDetailPage(): JSX.Element {
   const navigate = useNavigate();
   const { groupId } = useParams<{ groupId: string }>();
   const [leaving, setLeaving] = React.useState<boolean>(false);
+  const [leaveLoading, setLeaveLoading] = React.useState(false);
+  const [leaveError, setLeaveError] = React.useState<string | null>(null);
+
+  async function handleConfirmLeave(): Promise<void> {
+    if (!groupId) {
+      navigate("/my-groups");
+      return;
+    }
+    setLeaveLoading(true);
+    setLeaveError(null);
+    try {
+      await leaveGroup(groupId);
+      navigate("/my-groups");
+    } catch (err: any) {
+      setLeaveError(err?.response?.data?.message ?? "탈퇴에 실패했습니다.");
+    } finally {
+      setLeaveLoading(false);
+    }
+  }
+
   return (
     <AppShell>
       <div style={{ padding: 28, maxWidth: 780 }}>
@@ -68,7 +92,7 @@ export function MyGroupDetailPage(): JSX.Element {
             <h1 className="cl-display-sm" style={{ margin: 0 }}>주말 알고리즘 스터디</h1>
             <div style={{ fontFamily: "var(--font-sans)", fontSize: 14, color: "var(--muted)", marginTop: 6 }}>참여 8주차 · 다음 일정 이번 주 토요일</div>
           </div>
-          <Button variant="primary" iconLeft={<Icon name="message-circle" size={16} color="var(--on-primary)" />} onClick={() => navigate(groupId ? `/chat?groupId=${groupId}` : "/chat")}>채팅방</Button>
+          <Button variant="primary" iconLeft={<Icon name="message-circle" size={16} color="var(--on-primary)" />} onClick={() => navigate("/chat")}>채팅방</Button>
         </div>
 
         <SectionTitle icon="calendar">다가오는 일정</SectionTitle>
@@ -106,7 +130,14 @@ export function MyGroupDetailPage(): JSX.Element {
           <Button variant="secondary" iconLeft={<Icon name="log-out" size={16} color="var(--error)" />} onClick={() => setLeaving(true)} style={{ color: "var(--error)", borderColor: "var(--error)" }}>탈퇴하기</Button>
         </div>
       </div>
-      {leaving && <LeaveModal onClose={() => setLeaving(false)} onConfirm={() => navigate("/my-groups")} />}
+      {leaving && (
+        <LeaveModal
+          onClose={() => setLeaving(false)}
+          onConfirm={handleConfirmLeave}
+          loading={leaveLoading}
+          error={leaveError}
+        />
+      )}
     </AppShell>
   );
 }
