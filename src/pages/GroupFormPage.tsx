@@ -1,4 +1,5 @@
 import React from "react";
+import axios from "axios";
 import { useNavigate, useParams } from "react-router-dom";
 import { AppShell } from "../layouts/AppShell";
 import { Button } from "../components/ds/actions/Button";
@@ -20,6 +21,12 @@ interface RoleRow extends RecruitingRoleRequest {
 
 function emptyRole(): RoleRow {
   return { key: `${Date.now()}-${Math.random()}`, role: "", skill: "" };
+}
+
+function apiErrorMessage(error: unknown, fallback: string): string {
+  return axios.isAxiosError<{ message?: string }>(error)
+    ? error.response?.data?.message ?? fallback
+    : fallback;
 }
 
 /** 스터디 모임 등록/수정 폼 — /groups/new, /groups/:groupId/edit 에서 공용으로 사용. */
@@ -106,8 +113,8 @@ export function GroupFormPage(): JSX.Element {
         const res = await createGroup(payload);
         navigate(`/groups/${res.data.groupId}`);
       }
-    } catch (err: any) {
-      setError(err?.response?.data?.message ?? "저장에 실패했습니다.");
+    } catch (error: unknown) {
+      setError(apiErrorMessage(error, "저장에 실패했습니다."));
     } finally {
       setLoading(false);
     }

@@ -1,4 +1,5 @@
 import React from "react";
+import axios from "axios";
 import { Link, useNavigate } from "react-router-dom";
 import { Button } from "../components/ds/actions/Button";
 import { Input } from "../components/ds/forms/Input";
@@ -6,12 +7,13 @@ import { Field } from "../components/ds/forms/Field";
 import { Callout } from "../components/ds/feedback/Callout";
 import { ProgressBar } from "../components/ds/feedback/ProgressBar";
 import { Icon } from "../components/ds/foundations/Icon";
-import { sendVerificationCode } from "../api/authApi";
+import { sendVerificationCode, verifyCode } from "../api/authApi";
 
-// 백엔드에 별도의 "인증코드 확인" API가 없음 (POST /api/auth/signup 에서
-// email + verificationCode를 함께 검증함). 그래서 여기서는 형식만
-// 로컬로 체크하고, 실제 검증은 마지막 회원가입 제출 시점에 이루어짐.
-const CODE_PATTERN = /^\d{6}$/;
+function apiErrorMessage(error: unknown, fallback: string): string {
+  return axios.isAxiosError<{ message?: string }>(error)
+    ? error.response?.data?.message ?? fallback
+    : fallback;
+}
 
 function Brand(): JSX.Element {
   return (
@@ -39,6 +41,7 @@ export function SignupPage(): JSX.Element {
   const [verified, setVerified] = React.useState<boolean>(false);
   const [error, setError] = React.useState<string | null>(null);
   const [sending, setSending] = React.useState(false);
+  const [verifying, setVerifying] = React.useState(false);
 
   const handleSendCode = async () => {
     if (!email) {
@@ -51,27 +54,29 @@ export function SignupPage(): JSX.Element {
     try {
       await sendVerificationCode(email);
       setSent(true);
-    } catch (err: any) {
-      setError(err?.response?.data?.message ?? "인증코드 발송에 실패했습니다.");
+    } catch (error: unknown) {
+      setError(apiErrorMessage(error, "인증코드 발송에 실패했습니다."));
     } finally {
       setSending(false);
     }
   };
 
-  const handleVerify = () => {
+  const handleVerify = async () => {
     if (!email || !verificationCode) {
       setError("이메일과 인증코드를 모두 입력해주세요.");
       return;
     }
-    if (!CODE_PATTERN.test(verificationCode)) {
-      setVerified(false);
-      setError("인증코드는 숫자 6자리여야 합니다.");
-      return;
-    }
-    // 실제 인증코드 검증은 회원가입 제출(POST /api/auth/signup) 시점에
-    // 백엔드가 수행함. 코드가 틀리면 마지막 단계에서 에러로 안내됨.
     setError(null);
-    setVerified(true);
+    setVerifying(true);
+    try {
+      await verifyCode(email, verificationCode);
+      setVerified(true);
+    } catch (error: unknown) {
+      setVerified(false);
+      setError(apiErrorMessage(error, "인증번호 확인 요청을 처리하지 못했습니다. 잠시 후 다시 시도해주세요."));
+    } finally {
+      setVerifying(false);
+    }
   };
 
   const handleNext = () => {
@@ -119,8 +124,8 @@ export function SignupPage(): JSX.Element {
                 }}
               />
             </div>
-            <Button variant="secondary" onClick={handleVerify} disabled={verified}>
-              {verified ? "확인됨" : "확인"}
+            <Button variant="secondary" onClick={handleVerify} disabled={verifying || verified}>
+              {verifying ? "확인 중..." : verified ? "확인됨" : "확인"}
             </Button>
           </div>
         </Field>
