@@ -1,4 +1,5 @@
 import React from "react";
+import axios from "axios";
 import { Link, useNavigate } from "react-router-dom";
 import { Button } from "../components/ds/actions/Button";
 import { Input } from "../components/ds/forms/Input";
@@ -7,6 +8,12 @@ import { Callout } from "../components/ds/feedback/Callout";
 import { ProgressBar } from "../components/ds/feedback/ProgressBar";
 import { Icon } from "../components/ds/foundations/Icon";
 import { sendVerificationCode, verifyCode } from "../api/authApi";
+
+function apiErrorMessage(error: unknown, fallback: string): string {
+  return axios.isAxiosError<{ message?: string }>(error)
+    ? error.response?.data?.message ?? fallback
+    : fallback;
+}
 
 function Brand(): JSX.Element {
   return (
@@ -47,8 +54,8 @@ export function SignupPage(): JSX.Element {
     try {
       await sendVerificationCode(email);
       setSent(true);
-    } catch (err: any) {
-      setError(err?.response?.data?.message ?? "인증코드 발송에 실패했습니다.");
+    } catch (error: unknown) {
+      setError(apiErrorMessage(error, "인증코드 발송에 실패했습니다."));
     } finally {
       setSending(false);
     }
@@ -64,9 +71,9 @@ export function SignupPage(): JSX.Element {
     try {
       await verifyCode(email, verificationCode);
       setVerified(true);
-    } catch (err: any) {
+    } catch (error: unknown) {
       setVerified(false);
-      setError(err?.response?.data?.message ?? "인증코드가 올바르지 않습니다.");
+      setError(apiErrorMessage(error, "인증번호 확인 요청을 처리하지 못했습니다. 잠시 후 다시 시도해주세요."));
     } finally {
       setVerifying(false);
     }
