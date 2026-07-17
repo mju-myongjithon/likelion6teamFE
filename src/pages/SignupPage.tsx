@@ -6,7 +6,7 @@ import { Field } from "../components/ds/forms/Field";
 import { Callout } from "../components/ds/feedback/Callout";
 import { ProgressBar } from "../components/ds/feedback/ProgressBar";
 import { Icon } from "../components/ds/foundations/Icon";
-import { sendVerificationCode, verifyCode } from "../api/authApi";
+import { sendVerificationCode } from "../api/authApi";
 
 function Brand(): JSX.Element {
   return (
@@ -31,10 +31,8 @@ export function SignupPage(): JSX.Element {
   const [email, setEmail] = React.useState("");
   const [verificationCode, setVerificationCode] = React.useState("");
   const [sent, setSent] = React.useState<boolean>(false);
-  const [verified, setVerified] = React.useState<boolean>(false);
   const [error, setError] = React.useState<string | null>(null);
   const [sending, setSending] = React.useState(false);
-  const [verifying, setVerifying] = React.useState(false);
 
   const handleSendCode = async () => {
     if (!email) {
@@ -42,7 +40,6 @@ export function SignupPage(): JSX.Element {
       return;
     }
     setError(null);
-    setVerified(false);
     setSending(true);
     try {
       await sendVerificationCode(email);
@@ -54,30 +51,18 @@ export function SignupPage(): JSX.Element {
     }
   };
 
-  const handleVerify = async () => {
-    if (!email || !verificationCode) {
-      setError("이메일과 인증코드를 모두 입력해주세요.");
-      return;
-    }
-    setError(null);
-    setVerifying(true);
-    try {
-      await verifyCode(email, verificationCode);
-      setVerified(true);
-    } catch (err: any) {
-      setVerified(false);
-      setError(err?.response?.data?.message ?? "인증코드가 올바르지 않습니다.");
-    } finally {
-      setVerifying(false);
-    }
-  };
-
+  // 인증코드는 백엔드에 별도 확인 엔드포인트가 없고, 회원가입(POST /api/auth/signup) 시 함께 검증된다.
+  // 여기서는 코드를 입력받아 다음 단계로 넘기기만 한다.
   const handleNext = () => {
-    if (!verified) {
-      setError("먼저 인증코드 확인을 완료해주세요.");
+    if (!sent) {
+      setError("먼저 인증요청을 눌러 인증코드를 받아주세요.");
       return;
     }
-    navigate("/signup/password", { state: { email, verificationCode } });
+    if (!verificationCode.trim()) {
+      setError("인증코드를 입력해주세요.");
+      return;
+    }
+    navigate("/signup/password", { state: { email, verificationCode: verificationCode.trim() } });
   };
 
   return (
@@ -93,10 +78,7 @@ export function SignupPage(): JSX.Element {
                 placeholder="you@univ.ac.kr"
                 iconLeft={<Icon name="mail" size={18} />}
                 value={email}
-                onChange={(e: React.ChangeEvent<HTMLInputElement>) => {
-                  setEmail(e.target.value);
-                  setVerified(false);
-                }}
+                onChange={(e: React.ChangeEvent<HTMLInputElement>) => setEmail(e.target.value)}
               />
             </div>
             <Button variant="secondary" onClick={handleSendCode} disabled={sending}>
@@ -105,29 +87,14 @@ export function SignupPage(): JSX.Element {
           </div>
         </Field>
         <Field label="인증코드">
-          <div style={{ display: "flex", gap: 8 }}>
-            <div style={{ flex: 1 }}>
-              <Input
-                placeholder="------"
-                style={{ letterSpacing: 8, textAlign: "center" }}
-                value={verificationCode}
-                onChange={(e: React.ChangeEvent<HTMLInputElement>) => {
-                  setVerificationCode(e.target.value);
-                  setVerified(false);
-                }}
-              />
-            </div>
-            <Button variant="secondary" onClick={handleVerify} disabled={verifying || verified}>
-              {verifying ? "확인 중..." : verified ? "확인됨" : "확인"}
-            </Button>
-          </div>
+          <Input
+            placeholder="------"
+            style={{ letterSpacing: 8, textAlign: "center" }}
+            value={verificationCode}
+            onChange={(e: React.ChangeEvent<HTMLInputElement>) => setVerificationCode(e.target.value)}
+          />
         </Field>
-        {sent && !verified && <Callout>{email} 로 인증코드를 보냈어요 · 03:00 남음</Callout>}
-        {verified && (
-          <p style={{ margin: 0, color: "var(--success, green)", fontSize: 14, fontFamily: "var(--font-sans)" }}>
-            ✓ 인증에 성공했습니다.
-          </p>
-        )}
+        {sent && <Callout>{email} 로 인증코드를 보냈어요. 코드를 입력하면 가입 완료 시 확인돼요 · 03:00 남음</Callout>}
         {error && <p style={{ margin: 0, color: "var(--danger, red)", fontSize: 13 }}>{error}</p>}
         <ProgressBar step={1} total={5} />
         <Button
@@ -136,7 +103,7 @@ export function SignupPage(): JSX.Element {
           fullWidth
           iconRight={<Icon name="arrow-right" size={18} color="var(--on-primary)" />}
           onClick={handleNext}
-          disabled={!verified}
+          disabled={!sent || !verificationCode.trim()}
         >
           다음으로
         </Button>

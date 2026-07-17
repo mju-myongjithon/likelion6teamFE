@@ -27,8 +27,7 @@ export interface SignupRequest {
 export const sendVerificationCode = (email: string) =>
   apiClient.post('/api/auth/email-verifications', { email });
 
-export const verifyCode = (email: string, verificationCode: string) =>
-  apiClient.post('/api/auth/email-verifications/verify', { email, verificationCode });
+// 인증코드 확인용 별도 엔드포인트는 백엔드에 없다. 코드는 회원가입(signup) 시 함께 검증된다.
 
 export const signup = (data: SignupRequest) =>
   apiClient.post('/api/auth/signup', data);
