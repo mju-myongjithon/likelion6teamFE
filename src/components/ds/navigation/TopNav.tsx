@@ -4,6 +4,8 @@ export interface TopNavProps {
   brand?: string;
   links?: string[];
   activeLink?: string | null;
+  /** Called when a nav link is clicked, with the link label. Use to scroll to a section. */
+  onLinkClick?: (link: string) => void;
   /** Right-side action cluster (e.g. Sign in link + primary Button). */
   right?: React.ReactNode;
   style?: React.CSSProperties;
@@ -15,8 +17,9 @@ export interface TopNavProps {
  */
 export function TopNav({
   brand = "CampusLink",
-  links = ["둘러보기", "모임", "이벤트", "요금제"],
+  links = ["둘러보기", "모임", "요금제"],
   activeLink = null,
+  onLinkClick,
   right = null,
   style = {},
 }: TopNavProps): JSX.Element {
@@ -43,6 +46,10 @@ export function TopNav({
             <a
               key={l}
               href="#"
+              onClick={(e) => {
+                e.preventDefault();
+                onLinkClick?.(l);
+              }}
               style={{
                 padding: "8px 12px",
                 borderRadius: "var(--radius-md)",
@@ -50,6 +57,7 @@ export function TopNav({
                 fontSize: 14,
                 fontWeight: 500,
                 textDecoration: "none",
+                cursor: "pointer",
                 color: l === activeLink ? "var(--ink)" : "var(--muted)",
               }}
             >

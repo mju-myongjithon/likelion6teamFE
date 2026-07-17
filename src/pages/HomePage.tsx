@@ -6,6 +6,8 @@ import { MeetupCard, type MeetupCardProps } from "../components/ds/cards/MeetupC
 import { EventCard, type EventCardProps } from "../components/ds/cards/EventCard";
 import { Callout } from "../components/ds/feedback/Callout";
 import { Badge } from "../components/ds/display/Badge";
+import { Button } from "../components/ds/actions/Button";
+import { Icon } from "../components/ds/foundations/Icon";
 import { getMyProfile } from "../api/profileApi";
 import { getListings, type StudyListingItem, type HackathonListingItem } from "../api/listingApi";
 
@@ -207,7 +209,12 @@ export function HomePage(): JSX.Element {
           <NavPillGroup items={CATEGORIES} value={cat} onChange={setCat} />
         </div>
 
-        <SectionTitle>추천 모임</SectionTitle>
+        <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: "var(--space-md)" }}>
+          <h2 style={{ margin: 0, fontFamily: "var(--font-sans)", fontSize: 18, fontWeight: 600, color: "var(--ink)" }}>추천 모임</h2>
+          <Button variant="secondary" size="sm" iconLeft={<Icon name="plus" size={14} />} onClick={() => navigate("/groups/new")}>
+            새 모임 만들기
+          </Button>
+        </div>
         <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fill, minmax(calc(var(--space-section) * 3 - var(--space-xs)), 1fr))", gap: 20, marginBottom: 36, alignItems: "stretch" }}>
           {meetups.map(({ id, description, matchReason, ...m }) => (
             <div key={id} onClick={() => navigate(`/groups/${id}`)} style={{ cursor: "pointer", height: "100%" }}><MeetupCard {...m} style={{ height: "100%" }} /></div>

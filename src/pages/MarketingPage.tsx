@@ -17,14 +17,28 @@ interface SectionProps {
   bg?: string;
   pad?: number;
   style?: React.CSSProperties;
+  id?: string;
 }
 
-function Section({ children, bg = "var(--canvas)", pad = 96, style = {} }: SectionProps): JSX.Element {
+function Section({ children, bg = "var(--canvas)", pad = 96, style = {}, id }: SectionProps): JSX.Element {
   return (
-    <section style={{ background: bg, padding: `${pad}px var(--space-lg)`, ...style }}>
+    <section id={id} style={{ background: bg, padding: `${pad}px var(--space-lg)`, scrollMarginTop: 64, ...style }}>
       <div style={{ maxWidth: MAXW, margin: "0 auto" }}>{children}</div>
     </section>
   );
+}
+
+/** Nav label → target section id. "이벤트" was removed (no dedicated section). */
+const NAV_SECTION_IDS: Record<string, string> = {
+  "둘러보기": "features",
+  "모임": "discover",
+  "요금제": "pricing",
+};
+
+function scrollToSection(link: string): void {
+  const id = NAV_SECTION_IDS[link];
+  if (!id) return;
+  document.getElementById(id)?.scrollIntoView({ behavior: "smooth", block: "start" });
 }
 
 function Hero(): JSX.Element {
@@ -86,7 +100,7 @@ function Logos(): JSX.Element {
 
 function Features(): JSX.Element {
   return (
-    <Section bg="var(--surface-soft)">
+    <Section id="features" bg="var(--surface-soft)">
       <div style={{ textAlign: "center", maxWidth: 620, margin: "0 auto var(--space-xxl)" }}>
         <h2 className="cl-display-lg" style={{ margin: 0 }}>연결까지, 세 단계면 충분해요</h2>
         <p style={{ margin: "var(--space-md) 0 0", fontFamily: "var(--font-sans)", fontSize: 18, color: "var(--body)" }}>
@@ -130,7 +144,7 @@ function Discover(): JSX.Element {
     ],
   };
   return (
-    <Section>
+    <Section id="discover">
       <div style={{ display: "flex", alignItems: "flex-end", justifyContent: "space-between", marginBottom: 32, flexWrap: "wrap", gap: 16 }}>
         <div>
           <h2 className="cl-display-lg" style={{ margin: 0 }}>지금 뜨는 모임</h2>
@@ -160,7 +174,7 @@ function Testimonials(): JSX.Element {
 
 function Pricing(): JSX.Element {
   return (
-    <Section>
+    <Section id="pricing">
       <div style={{ textAlign: "center", marginBottom: 48 }}>
         <h2 className="cl-display-lg" style={{ margin: 0 }}>부담 없이 시작하세요</h2>
         <p style={{ margin: "var(--space-md) 0 0", fontFamily: "var(--font-sans)", fontSize: 18, color: "var(--body)" }}>언제든 업그레이드하거나 해지할 수 있습니다.</p>
@@ -228,6 +242,7 @@ export function MarketingPage(): JSX.Element {
       <div style={{ position: "sticky", top: 0, zIndex: 10 }}>
         <TopNav
           activeLink="둘러보기"
+          onLinkClick={scrollToSection}
           right={<>
             <Button variant="ghost" size="sm" onClick={() => navigate("/login")}>로그인</Button>
             <Button variant="primary" size="sm" onClick={() => navigate("/signup")}>무료로 시작</Button>

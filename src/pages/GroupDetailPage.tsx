@@ -1,4 +1,5 @@
 import React from "react";
+import axios from "axios";
 import { useNavigate, useParams } from "react-router-dom";
 import { AppShell } from "../layouts/AppShell";
 import { Button } from "../components/ds/actions/Button";
@@ -9,25 +10,37 @@ import { Avatar, type AvatarTone } from "../components/ds/display/Avatar";
 import { Callout } from "../components/ds/feedback/Callout";
 import { Icon } from "../components/ds/foundations/Icon";
 import { useSavedItems } from "../context/SavedItemsContext";
-import { getGroupDetail, type GroupDetail } from "../api/groupApi";
+import {
+  getGroupDetail,
+  deleteGroup,
+  getGroupMembers,
+  applyToGroup,
+  getMyApplicationForGroup,
+  getGroupApplications,
+  approveApplication,
+  rejectApplication,
+  removeMember,
+  transferLeadership,
+  closeRecruitment,
+  reopenRecruitment,
+  recommendGroupCafes,
+  type GroupDetail,
+  type MemberResponse,
+  type ApplicationResponse,
+  type CafeRecommendationResponse,
+} from "../api/groupApi";
+import { cancelMyApplication } from "../api/groupApplicationApi";
+import { getMyProfile } from "../api/profileApi";
+import {
+  getGroupInquiries,
+  createGroupInquiry,
+  answerGroupInquiry,
+  deleteGroupInquiry,
+  type GroupInquiryResponse,
+} from "../api/groupInquiryApi";
 
-interface Member { name: string; tone: AvatarTone; role: string; }
-const MEMBERS: Member[] = [
-  { name: "김민준", tone: "violet", role: "호스트" },
-  { name: "이서연", tone: "pink", role: "멤버" },
-  { name: "박도윤", tone: "emerald", role: "멤버" },
-  { name: "최유진", tone: "orange", role: "멤버" },
-];
-
-interface InquiryItem {
-  id: string;
-  text: string;
-  time: number;
-  reply?: { text: string; time: number };
-}
-
-function formatRelativeTime(timestamp: number): string {
-  const diffMs = Date.now() - timestamp;
+function formatRelativeTime(iso: string): string {
+  const diffMs = Date.now() - new Date(iso).getTime();
   const diffSec = Math.floor(diffMs / 1000);
   const diffMin = Math.floor(diffSec / 60);
   const diffHour = Math.floor(diffMin / 60);
@@ -39,8 +52,14 @@ function formatRelativeTime(timestamp: number): string {
   if (diffDay === 1) return "어제";
   if (diffDay < 7) return `${diffDay}일 전`;
 
-  const date = new Date(timestamp);
+  const date = new Date(iso);
   return `${date.getFullYear()}.${String(date.getMonth() + 1).padStart(2, "0")}.${String(date.getDate()).padStart(2, "0")}`;
+}
+
+function apiErrorMessage(error: unknown, fallback: string): string {
+  return axios.isAxiosError<{ message?: string }>(error)
+    ? error.response?.data?.message ?? fallback
+    : fallback;
 }
 
 function InfoTile({ icon, label, value }: { icon: string; label: string; value: string }): JSX.Element {
@@ -63,6 +82,16 @@ export function GroupDetailPage(): JSX.Element {
   const [loading, setLoading] = React.useState(true);
   const [loadError, setLoadError] = React.useState<string | null>(null);
 
+  const refreshGroup = React.useCallback(async () => {
+    if (!groupId) return;
+    try {
+      const res = await getGroupDetail(groupId);
+      setGroup(res.data);
+    } catch (err) {
+      console.error("모임 상세 조회 실패:", err);
+    }
+  }, [groupId]);
+
   React.useEffect(() => {
     if (!groupId) return;
     getGroupDetail(groupId)
@@ -74,45 +103,286 @@ export function GroupDetailPage(): JSX.Element {
       .finally(() => setLoading(false));
   }, [groupId]);
 
-  const [inquiry, setInquiry] = React.useState<string>("");
-  const [inquiries, setInquiries] = React.useState<InquiryItem[]>([]);
-  const [inquiryError, setInquiryError] = React.useState<string | undefined>(undefined);
-  const [justSubmitted, setJustSubmitted] = React.useState<boolean>(false);
-  const [inquiryPage, setInquiryPage] = React.useState<number>(1);
-  const INQUIRIES_PER_PAGE = 5;
-  const [, setTick] = React.useState<number>(0);
-
-  // 로그인/권한 기능이 아직 없어서 임시로 호스트라고 가정. 실제 로그인 붙으면
-  // currentUser.id === group.leaderUserId 같은 조건으로 교체하면 됨.
-  const isHost = true;
-  const [replyDraftId, setReplyDraftId] = React.useState<string | null>(null);
-  const [replyDraftText, setReplyDraftText] = React.useState<string>("");
-
-  // "방금" → "1분 전" 처럼 시간 표시가 저절로 갱신되도록 1분마다 리렌더
+  const [currentUserId, setCurrentUserId] = React.useState<number | null>(null);
   React.useEffect(() => {
-    const interval = window.setInterval(() => setTick((t) => t + 1), 60000);
-    return () => window.clearInterval(interval);
+    getMyProfile()
+      .then((res) => setCurrentUserId(res.data.userId))
+      .catch(() => {
+        // 비로그인 상태일 수 있음 — 리더 전용 기능만 숨기고 나머지는 그대로 보여줌
+      });
   }, []);
+
+  const [members, setMembers] = React.useState<MemberResponse[]>([]);
+  const [membersError, setMembersError] = React.useState<string | null>(null);
+  const [memberActionLoading, setMemberActionLoading] = React.useState<number | null>(null);
+
+  const refreshMembers = React.useCallback(async () => {
+    if (!groupId) return;
+    try {
+      const res = await getGroupMembers(groupId);
+      setMembers(res.data);
+      setMembersError(null);
+    } catch (err) {
+      console.error("모임 참여자 조회 실패:", err);
+      setMembersError("참여 중인 멤버만 목록을 볼 수 있어요.");
+    }
+  }, [groupId]);
+
+  React.useEffect(() => {
+    // Fetch-on-mount callback updates state only after its request resolves.
+    // eslint-disable-next-line react-hooks/set-state-in-effect
+    refreshMembers();
+  }, [refreshMembers]);
+
+  const [deleting, setDeleting] = React.useState(false);
+  const [deleteLoading, setDeleteLoading] = React.useState(false);
+  const [deleteError, setDeleteError] = React.useState<string | null>(null);
+
+  async function handleDelete(): Promise<void> {
+    if (!groupId) return;
+    setDeleteLoading(true);
+    setDeleteError(null);
+    try {
+      await deleteGroup(groupId);
+      navigate("/home");
+    } catch (error: unknown) {
+      setDeleteError(apiErrorMessage(error, "삭제에 실패했습니다."));
+      setDeleteLoading(false);
+    }
+  }
+
+  const isHost = group !== null && currentUserId !== null && currentUserId === group.leaderUserId;
 
   const { isSaved, toggleSave } = useSavedItems();
   const saved = group ? isSaved(String(group.groupId)) : false;
 
-  // 문의하기: 프론트엔드 로컬 상태에만 저장 (백엔드 연동 전까지 새로고침 시 초기화됨)
-  function handleSubmitInquiry(): void {
+  // ── 참가 신청 (신청자 관점) ──────────────────────────────
+  const [myApplication, setMyApplication] = React.useState<ApplicationResponse | null>(null);
+  const [myApplicationLoading, setMyApplicationLoading] = React.useState(true);
+  const [applyLoading, setApplyLoading] = React.useState(false);
+  const [applyError, setApplyError] = React.useState<string | null>(null);
+  const [cancelLoading, setCancelLoading] = React.useState(false);
+
+  const refreshMyApplication = React.useCallback(async () => {
+    if (!groupId) return;
+    try {
+      const res = await getMyApplicationForGroup(groupId);
+      setMyApplication(res.data);
+    } catch {
+      setMyApplication(null);
+    } finally {
+      setMyApplicationLoading(false);
+    }
+  }, [groupId]);
+
+  React.useEffect(() => {
+    if (isHost) {
+      // The leader does not need an application lookup.
+      // eslint-disable-next-line react-hooks/set-state-in-effect
+      setMyApplicationLoading(false);
+      return;
+    }
+    refreshMyApplication();
+  }, [refreshMyApplication, isHost]);
+
+  async function handleApply(): Promise<void> {
+    if (!groupId) return;
+    setApplyLoading(true);
+    setApplyError(null);
+    try {
+      const res = await applyToGroup(groupId);
+      setMyApplication(res.data);
+      navigate("/apply/complete");
+    } catch (error: unknown) {
+      setApplyError(apiErrorMessage(error, "참여 신청에 실패했습니다."));
+    } finally {
+      setApplyLoading(false);
+    }
+  }
+
+  async function handleCancelApplication(): Promise<void> {
+    if (!myApplication) return;
+    setCancelLoading(true);
+    try {
+      await cancelMyApplication(myApplication.applicationId);
+      setMyApplication(null);
+    } catch (error: unknown) {
+      setApplyError(apiErrorMessage(error, "신청 취소에 실패했습니다."));
+    } finally {
+      setCancelLoading(false);
+    }
+  }
+
+  // ── 리더 관리: 대기 신청 승인/거절 ──────────────────────────
+  const [pendingApplications, setPendingApplications] = React.useState<ApplicationResponse[]>([]);
+  const [pendingLoading, setPendingLoading] = React.useState(false);
+  const [applicationActionLoading, setApplicationActionLoading] = React.useState<number | null>(null);
+
+  const refreshPendingApplications = React.useCallback(async () => {
+    if (!groupId || !isHost) return;
+    setPendingLoading(true);
+    try {
+      const res = await getGroupApplications(groupId);
+      setPendingApplications(res.data.filter((a) => a.status === "PENDING"));
+    } catch (err) {
+      console.error("대기 신청 조회 실패:", err);
+    } finally {
+      setPendingLoading(false);
+    }
+  }, [groupId, isHost]);
+
+  React.useEffect(() => {
+    // Leader-only fetch callback updates state as part of the request lifecycle.
+    // eslint-disable-next-line react-hooks/set-state-in-effect
+    refreshPendingApplications();
+  }, [refreshPendingApplications]);
+
+  async function handleApprove(applicationId: number): Promise<void> {
+    if (!groupId) return;
+    setApplicationActionLoading(applicationId);
+    try {
+      await approveApplication(groupId, applicationId);
+      await Promise.all([refreshPendingApplications(), refreshMembers(), refreshGroup()]);
+    } catch (err) {
+      console.error("신청 승인 실패:", err);
+    } finally {
+      setApplicationActionLoading(null);
+    }
+  }
+
+  async function handleReject(applicationId: number): Promise<void> {
+    if (!groupId) return;
+    setApplicationActionLoading(applicationId);
+    try {
+      await rejectApplication(groupId, applicationId);
+      await refreshPendingApplications();
+    } catch (err) {
+      console.error("신청 거절 실패:", err);
+    } finally {
+      setApplicationActionLoading(null);
+    }
+  }
+
+  // ── 리더 관리: 멤버 강퇴 / 리더 양도 / 모집 마감·재개 ─────────
+  async function handleRemoveMember(userId: number): Promise<void> {
+    if (!groupId) return;
+    if (!window.confirm("이 멤버를 모임에서 강퇴할까요?")) return;
+    setMemberActionLoading(userId);
+    try {
+      await removeMember(groupId, userId);
+      await Promise.all([refreshMembers(), refreshGroup()]);
+    } catch (err) {
+      console.error("멤버 강퇴 실패:", err);
+    } finally {
+      setMemberActionLoading(null);
+    }
+  }
+
+  async function handleTransferLeadership(userId: number): Promise<void> {
+    if (!groupId) return;
+    if (!window.confirm("이 멤버에게 리더 권한을 양도할까요? 되돌릴 수 없어요.")) return;
+    setMemberActionLoading(userId);
+    try {
+      await transferLeadership(groupId, userId);
+      await Promise.all([refreshMembers(), refreshGroup()]);
+    } catch (err) {
+      console.error("리더 양도 실패:", err);
+    } finally {
+      setMemberActionLoading(null);
+    }
+  }
+
+  const [recruitmentLoading, setRecruitmentLoading] = React.useState(false);
+  async function handleToggleRecruitment(): Promise<void> {
+    if (!groupId || !group) return;
+    setRecruitmentLoading(true);
+    try {
+      if (group.status === "RECRUITING") {
+        await closeRecruitment(groupId);
+      } else {
+        await reopenRecruitment(groupId);
+      }
+      await refreshGroup();
+    } catch (err) {
+      console.error("모집 상태 변경 실패:", err);
+    } finally {
+      setRecruitmentLoading(false);
+    }
+  }
+
+  // ── 카페 추천 ────────────────────────────────────────────
+  const [cafeResult, setCafeResult] = React.useState<CafeRecommendationResponse | null>(null);
+  const [cafeLoading, setCafeLoading] = React.useState(false);
+  const [cafeError, setCafeError] = React.useState<string | null>(null);
+
+  async function handleRecommendCafes(): Promise<void> {
+    if (!groupId) return;
+    setCafeLoading(true);
+    setCafeError(null);
+    try {
+      const res = await recommendGroupCafes(groupId);
+      setCafeResult(res.data);
+    } catch (error: unknown) {
+      setCafeError(apiErrorMessage(error, "카페 추천을 불러오지 못했습니다."));
+    } finally {
+      setCafeLoading(false);
+    }
+  }
+
+  // ── 모임 문의 (실 API 연동) ───────────────────────────────
+  const [inquiry, setInquiry] = React.useState<string>("");
+  const [inquiries, setInquiries] = React.useState<GroupInquiryResponse[]>([]);
+  const [inquiryError, setInquiryError] = React.useState<string | undefined>(undefined);
+  const [justSubmitted, setJustSubmitted] = React.useState<boolean>(false);
+  const [inquiryPage, setInquiryPage] = React.useState<number>(1);
+  const [inquiryTotalPages, setInquiryTotalPages] = React.useState<number>(1);
+  const [inquiryLoading, setInquiryLoading] = React.useState(false);
+  const [submittingInquiry, setSubmittingInquiry] = React.useState(false);
+  const INQUIRIES_PER_PAGE = 5;
+  const [replyDraftId, setReplyDraftId] = React.useState<number | null>(null);
+  const [replyDraftText, setReplyDraftText] = React.useState<string>("");
+  const [replySubmitting, setReplySubmitting] = React.useState(false);
+
+  const refreshInquiries = React.useCallback(async (page: number) => {
+    if (!groupId) return;
+    setInquiryLoading(true);
+    try {
+      const res = await getGroupInquiries(groupId, page - 1, INQUIRIES_PER_PAGE);
+      setInquiries(res.data.content);
+      setInquiryTotalPages(Math.max(1, res.data.totalPages));
+    } catch (err) {
+      console.error("모임 문의 조회 실패:", err);
+    } finally {
+      setInquiryLoading(false);
+    }
+  }, [groupId]);
+
+  React.useEffect(() => {
+    // Page fetch callback updates state as part of the request lifecycle.
+    // eslint-disable-next-line react-hooks/set-state-in-effect
+    refreshInquiries(inquiryPage);
+  }, [refreshInquiries, inquiryPage]);
+
+  async function handleSubmitInquiry(): Promise<void> {
     const trimmed = inquiry.trim();
-    if (!trimmed) {
+    if (!trimmed || !groupId) {
       setInquiryError("문의 내용을 입력해주세요.");
       return;
     }
     setInquiryError(undefined);
-    setInquiries((prev) => [
-      { id: `${Date.now()}`, text: trimmed, time: Date.now() },
-      ...prev,
-    ]);
-    setInquiry("");
-    setJustSubmitted(true);
-    setInquiryPage(1);
-    window.setTimeout(() => setJustSubmitted(false), 2000);
+    setSubmittingInquiry(true);
+    try {
+      await createGroupInquiry(groupId, trimmed);
+      setInquiry("");
+      setJustSubmitted(true);
+      setInquiryPage(1);
+      await refreshInquiries(1);
+      window.setTimeout(() => setJustSubmitted(false), 2000);
+    } catch (error: unknown) {
+      setInquiryError(apiErrorMessage(error, "문의 등록에 실패했습니다."));
+    } finally {
+      setSubmittingInquiry(false);
+    }
   }
 
   function handleInquiryKeyDown(e: React.KeyboardEvent<HTMLInputElement>): void {
@@ -122,17 +392,18 @@ export function GroupDetailPage(): JSX.Element {
     }
   }
 
-  function handleDeleteInquiry(id: string): void {
-    setInquiries((prev) => {
-      const next = prev.filter((q) => q.id !== id);
-      const maxPage = Math.max(1, Math.ceil(next.length / INQUIRIES_PER_PAGE));
-      setInquiryPage((page) => Math.min(page, maxPage));
-      return next;
-    });
+  async function handleDeleteInquiry(inquiryId: number): Promise<void> {
+    if (!groupId) return;
+    try {
+      await deleteGroupInquiry(groupId, inquiryId);
+      await refreshInquiries(inquiryPage);
+    } catch (err) {
+      console.error("문의 삭제 실패:", err);
+    }
   }
 
-  function handleStartReply(id: string): void {
-    setReplyDraftId(id);
+  function handleStartReply(inquiryId: number): void {
+    setReplyDraftId(inquiryId);
     setReplyDraftText("");
   }
 
@@ -141,23 +412,21 @@ export function GroupDetailPage(): JSX.Element {
     setReplyDraftText("");
   }
 
-  function handleSubmitReply(id: string): void {
+  async function handleSubmitReply(inquiryId: number): Promise<void> {
     const trimmed = replyDraftText.trim();
-    if (!trimmed) return;
-    setInquiries((prev) =>
-      prev.map((q) =>
-        q.id === id ? { ...q, reply: { text: trimmed, time: Date.now() } } : q
-      )
-    );
-    setReplyDraftId(null);
-    setReplyDraftText("");
+    if (!trimmed || !groupId) return;
+    setReplySubmitting(true);
+    try {
+      await answerGroupInquiry(groupId, inquiryId, trimmed);
+      setReplyDraftId(null);
+      setReplyDraftText("");
+      await refreshInquiries(inquiryPage);
+    } catch (err) {
+      console.error("문의 답변 실패:", err);
+    } finally {
+      setReplySubmitting(false);
+    }
   }
-
-  const inquiryTotalPages = Math.max(1, Math.ceil(inquiries.length / INQUIRIES_PER_PAGE));
-  const paginatedInquiries = inquiries.slice(
-    (inquiryPage - 1) * INQUIRIES_PER_PAGE,
-    inquiryPage * INQUIRIES_PER_PAGE
-  );
 
   if (loading) {
     return (
@@ -214,20 +483,116 @@ export function GroupDetailPage(): JSX.Element {
             <Callout>현재 모집 중인 역할이 없어요.</Callout>
           )}
         </div>
+
+        {/* ── 참여 멤버 (리더는 강퇴/양도 가능) ─────────────────── */}
         <div style={{ marginBottom: 28 }}>
           <div style={{ fontFamily: "var(--font-sans)", fontSize: 16, fontWeight: 600, color: "var(--ink)", marginBottom: 14 }}>참여 멤버 {group.currentMemberCount}명</div>
-          <div style={{ display: "flex", flexWrap: "wrap", gap: 16 }}>
-            {MEMBERS.map((m) => (
-              <div key={m.name} style={{ display: "flex", alignItems: "center", gap: 10 }}>
-                <Avatar name={m.name} tone={m.tone} size={40} />
-                <div>
-                  <div style={{ fontFamily: "var(--font-sans)", fontSize: 14, fontWeight: 600, color: "var(--ink)" }}>{m.name}</div>
-                  <div style={{ fontFamily: "var(--font-sans)", fontSize: 13, color: "var(--muted)" }}>{m.role}</div>
-                </div>
-              </div>
-            ))}
-          </div>
+          {members.length > 0 ? (
+            <div style={{ display: "flex", flexWrap: "wrap", gap: 16 }}>
+              {members.map((m) => {
+                const label = m.userId === currentUserId ? "나" : `멤버 #${m.userId}`;
+                const tone: AvatarTone = m.role === "LEADER" ? "violet" : "neutral";
+                const canManage = isHost && m.role !== "LEADER";
+                return (
+                  <div key={m.userId} style={{ display: "flex", alignItems: "center", gap: 10 }}>
+                    <Avatar name={label} tone={tone} size={40} />
+                    <div>
+                      <div style={{ fontFamily: "var(--font-sans)", fontSize: 14, fontWeight: 600, color: "var(--ink)" }}>{label}</div>
+                      <div style={{ fontFamily: "var(--font-sans)", fontSize: 13, color: "var(--muted)" }}>{m.role === "LEADER" ? "호스트" : "멤버"}</div>
+                    </div>
+                    {canManage && (
+                      <div style={{ display: "flex", flexDirection: "column", gap: 2 }}>
+                        <button
+                          type="button"
+                          onClick={() => handleTransferLeadership(m.userId)}
+                          disabled={memberActionLoading === m.userId}
+                          style={{ background: "transparent", border: "none", cursor: "pointer", padding: 0, fontFamily: "var(--font-sans)", fontSize: 11, fontWeight: 600, color: "var(--brand-accent)", textAlign: "left" }}
+                        >
+                          리더 양도
+                        </button>
+                        <button
+                          type="button"
+                          onClick={() => handleRemoveMember(m.userId)}
+                          disabled={memberActionLoading === m.userId}
+                          style={{ background: "transparent", border: "none", cursor: "pointer", padding: 0, fontFamily: "var(--font-sans)", fontSize: 11, fontWeight: 600, color: "var(--error)", textAlign: "left" }}
+                        >
+                          강퇴
+                        </button>
+                      </div>
+                    )}
+                  </div>
+                );
+              })}
+            </div>
+          ) : (
+            <Callout>{membersError ?? "아직 참여 멤버가 없어요."}</Callout>
+          )}
         </div>
+
+        {/* ── 리더 관리 패널: 대기 신청 + 모집 마감/재개 ─────────── */}
+        {isHost && (
+          <div style={{ marginBottom: 28, border: "1px solid var(--hairline)", borderRadius: "var(--radius-lg)", padding: 20 }}>
+            <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 16 }}>
+              <div style={{ fontFamily: "var(--font-sans)", fontSize: 16, fontWeight: 600, color: "var(--ink)" }}>모임 관리</div>
+              <Button variant="secondary" size="sm" onClick={handleToggleRecruitment} disabled={recruitmentLoading}>
+                {recruitmentLoading ? "처리 중..." : group.status === "RECRUITING" ? "모집 마감하기" : "모집 재개하기"}
+              </Button>
+            </div>
+            <div style={{ fontFamily: "var(--font-sans)", fontSize: 14, fontWeight: 600, color: "var(--ink)", marginBottom: 10 }}>
+              대기 중인 신청 {pendingApplications.length}건
+            </div>
+            {pendingLoading ? (
+              <div style={{ color: "var(--muted)", fontFamily: "var(--font-sans)", fontSize: 13 }}>불러오는 중...</div>
+            ) : pendingApplications.length > 0 ? (
+              <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
+                {pendingApplications.map((a) => (
+                  <div key={a.applicationId} style={{ display: "flex", alignItems: "center", justifyContent: "space-between", gap: 8, padding: "10px 14px", background: "var(--surface-card)", borderRadius: "var(--radius-md)" }}>
+                    <div style={{ fontFamily: "var(--font-sans)", fontSize: 13, color: "var(--body)" }}>
+                      신청자 #{a.applicantUserId} · {formatRelativeTime(a.requestedAt)}
+                    </div>
+                    <div style={{ display: "flex", gap: 6 }}>
+                      <Button variant="primary" size="sm" onClick={() => handleApprove(a.applicationId)} disabled={applicationActionLoading === a.applicationId}>
+                        승인
+                      </Button>
+                      <Button variant="secondary" size="sm" onClick={() => handleReject(a.applicationId)} disabled={applicationActionLoading === a.applicationId}>
+                        거절
+                      </Button>
+                    </div>
+                  </div>
+                ))}
+              </div>
+            ) : (
+              <div style={{ color: "var(--muted)", fontFamily: "var(--font-sans)", fontSize: 13 }}>대기 중인 신청이 없어요.</div>
+            )}
+          </div>
+        )}
+
+        {/* ── 공동 카페 추천 ─────────────────────────────────── */}
+        <div style={{ marginBottom: 28 }}>
+          <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 10 }}>
+            <div style={{ fontFamily: "var(--font-sans)", fontSize: 16, fontWeight: 600, color: "var(--ink)" }}>모임 멤버 공동 카페 추천</div>
+            <Button variant="secondary" size="sm" onClick={handleRecommendCafes} disabled={cafeLoading}>
+              {cafeLoading ? "찾는 중..." : "추천받기"}
+            </Button>
+          </div>
+          {cafeError && <Callout tone="danger">{cafeError}</Callout>}
+          {cafeResult && cafeResult.recommendations.length > 0 && (
+            <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
+              {cafeResult.recommendations.map((c) => (
+                <div key={c.rank} style={{ padding: "12px 14px", border: "1px solid var(--hairline)", borderRadius: "var(--radius-md)" }}>
+                  <div style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: 4 }}>
+                    <Badge>{c.rank}순위</Badge>
+                    <span style={{ fontFamily: "var(--font-sans)", fontSize: 14, fontWeight: 600, color: "var(--ink)" }}>{c.location.placeName}</span>
+                  </div>
+                  {c.detail.address && <div style={{ fontFamily: "var(--font-sans)", fontSize: 13, color: "var(--muted)" }}>{c.detail.address}</div>}
+                  <div style={{ fontFamily: "var(--font-sans)", fontSize: 12, color: "var(--muted)", marginTop: 4 }}>{c.reason}</div>
+                </div>
+              ))}
+            </div>
+          )}
+        </div>
+
+        {/* ── 모임 문의 ────────────────────────────────────────── */}
         <div style={{ marginBottom: 28 }}>
           <Field label="문의">
             <div style={{ display: "flex", gap: 8 }}>
@@ -242,8 +607,8 @@ export function GroupDetailPage(): JSX.Element {
                   onKeyDown={handleInquiryKeyDown}
                 />
               </div>
-              <Button variant="secondary" onClick={handleSubmitInquiry} disabled={!inquiry.trim()}>
-                문의하기
+              <Button variant="secondary" onClick={handleSubmitInquiry} disabled={!inquiry.trim() || submittingInquiry}>
+                {submittingInquiry ? "등록 중..." : "문의하기"}
               </Button>
             </div>
           </Field>
@@ -260,11 +625,13 @@ export function GroupDetailPage(): JSX.Element {
             </div>
           )}
 
-          {inquiries.length > 0 && (
+          {inquiryLoading && <div style={{ marginTop: 16, color: "var(--muted)", fontFamily: "var(--font-sans)", fontSize: 13 }}>불러오는 중...</div>}
+
+          {!inquiryLoading && inquiries.length > 0 && (
             <div style={{ marginTop: 16, display: "flex", flexDirection: "column", gap: 8 }}>
-              {paginatedInquiries.map((q) => (
+              {inquiries.map((q) => (
                 <div
-                  key={q.id}
+                  key={q.inquiryId}
                   style={{
                     background: "var(--surface-card)",
                     borderRadius: "var(--radius-md)",
@@ -274,29 +641,31 @@ export function GroupDetailPage(): JSX.Element {
                   <div style={{ display: "flex", alignItems: "flex-start", gap: 8 }}>
                     <Icon name="message-circle" size={14} color="var(--muted)" />
                     <div style={{ flex: 1 }}>
-                      <div style={{ fontFamily: "var(--font-sans)", fontSize: 13, color: "var(--body)" }}>{q.text}</div>
-                      <div style={{ fontFamily: "var(--font-sans)", fontSize: 11, color: "var(--muted)" }}>{formatRelativeTime(q.time)}</div>
+                      <div style={{ fontFamily: "var(--font-sans)", fontSize: 13, color: "var(--body)" }}>{q.content}</div>
+                      <div style={{ fontFamily: "var(--font-sans)", fontSize: 11, color: "var(--muted)" }}>{formatRelativeTime(q.createdAt)}</div>
                     </div>
-                    <button
-                      type="button"
-                      onClick={() => handleDeleteInquiry(q.id)}
-                      aria-label="문의 삭제"
-                      style={{
-                        background: "transparent",
-                        border: "none",
-                        cursor: "pointer",
-                        padding: 4,
-                        display: "flex",
-                        alignItems: "center",
-                        borderRadius: "var(--radius-sm)",
-                      }}
-                    >
-                      <Icon name="x" size={14} color="var(--muted)" />
-                    </button>
+                    {q.canDelete && (
+                      <button
+                        type="button"
+                        onClick={() => handleDeleteInquiry(q.inquiryId)}
+                        aria-label="문의 삭제"
+                        style={{
+                          background: "transparent",
+                          border: "none",
+                          cursor: "pointer",
+                          padding: 4,
+                          display: "flex",
+                          alignItems: "center",
+                          borderRadius: "var(--radius-sm)",
+                        }}
+                      >
+                        <Icon name="x" size={14} color="var(--muted)" />
+                      </button>
+                    )}
                   </div>
 
                   {/* 호스트 답변 (등록된 경우) */}
-                  {q.reply && (
+                  {q.answer && (
                     <div
                       style={{
                         marginTop: 10,
@@ -307,16 +676,16 @@ export function GroupDetailPage(): JSX.Element {
                     >
                       <div style={{ display: "flex", alignItems: "center", gap: 6, marginBottom: 2 }}>
                         <span style={{ fontFamily: "var(--font-sans)", fontSize: 12, fontWeight: 700, color: "var(--ink)" }}>호스트 답변</span>
-                        <span style={{ fontFamily: "var(--font-sans)", fontSize: 11, color: "var(--muted)" }}>{formatRelativeTime(q.reply.time)}</span>
+                        <span style={{ fontFamily: "var(--font-sans)", fontSize: 11, color: "var(--muted)" }}>{formatRelativeTime(q.answer.answeredAt)}</span>
                       </div>
-                      <div style={{ fontFamily: "var(--font-sans)", fontSize: 13, color: "var(--body)" }}>{q.reply.text}</div>
+                      <div style={{ fontFamily: "var(--font-sans)", fontSize: 13, color: "var(--body)" }}>{q.answer.content}</div>
                     </div>
                   )}
 
                   {/* 호스트에게만 보이는 답변 작성 UI */}
-                  {isHost && !q.reply && (
+                  {q.canAnswer && !q.answer && (
                     <div style={{ marginTop: 10, marginLeft: 22 }}>
-                      {replyDraftId === q.id ? (
+                      {replyDraftId === q.inquiryId ? (
                         <div style={{ display: "flex", gap: 8 }}>
                           <div style={{ flex: 1 }}>
                             <Input
@@ -326,13 +695,13 @@ export function GroupDetailPage(): JSX.Element {
                               onKeyDown={(e) => {
                                 if (e.key === "Enter") {
                                   e.preventDefault();
-                                  handleSubmitReply(q.id);
+                                  handleSubmitReply(q.inquiryId);
                                 }
                                 if (e.key === "Escape") handleCancelReply();
                               }}
                             />
                           </div>
-                          <Button variant="secondary" onClick={() => handleSubmitReply(q.id)} disabled={!replyDraftText.trim()}>
+                          <Button variant="secondary" onClick={() => handleSubmitReply(q.inquiryId)} disabled={!replyDraftText.trim() || replySubmitting}>
                             등록
                           </Button>
                           <Button variant="ghost" onClick={handleCancelReply}>
@@ -342,7 +711,7 @@ export function GroupDetailPage(): JSX.Element {
                       ) : (
                         <button
                           type="button"
-                          onClick={() => handleStartReply(q.id)}
+                          onClick={() => handleStartReply(q.inquiryId)}
                           style={{
                             background: "transparent",
                             border: "none",
@@ -428,29 +797,86 @@ export function GroupDetailPage(): JSX.Element {
             </div>
           )}
         </div>
-        <div style={{ display: "flex", gap: 12, position: "sticky", bottom: 0, background: "var(--canvas)", paddingTop: 8 }}>
-          <Button variant="primary" size="lg" onClick={() => navigate("/apply/complete")}>참여 신청하기</Button>
-          <Button
-            variant="secondary"
-            size="lg"
-            iconLeft={<Icon name={saved ? "bookmark-check" : "bookmark"} size={16} />}
-            onClick={() => toggleSave({
-              id: String(group.groupId),
-              type: "group",
-              title: group.title,
-              category: "스터디",
-              categoryTone: "violet",
-              when: group.meetingRule,
-              where: group.location,
-              host: "",
-              members: group.currentMemberCount,
-              capacity: group.maxMemberCount,
-            })}
-          >
-            {saved ? "저장됨" : "저장"}
-          </Button>
+
+        <div style={{ display: "flex", flexDirection: "column", gap: 8, position: "sticky", bottom: 0, background: "var(--canvas)", paddingTop: 8 }}>
+          {applyError && <div style={{ fontFamily: "var(--font-sans)", fontSize: 13, color: "var(--danger, red)" }}>{applyError}</div>}
+          <div style={{ display: "flex", gap: 12 }}>
+            {isHost ? (
+              <>
+                <Button variant="primary" size="lg" iconLeft={<Icon name="pencil" size={16} color="var(--on-primary)" />} onClick={() => navigate(`/groups/${group.groupId}/edit`)}>
+                  모임 수정
+                </Button>
+                <Button
+                  variant="secondary"
+                  size="lg"
+                  iconLeft={<Icon name="trash-2" size={16} color="var(--error)" />}
+                  onClick={() => setDeleting(true)}
+                  style={{ color: "var(--error)", borderColor: "var(--error)" }}
+                >
+                  삭제
+                </Button>
+              </>
+            ) : myApplicationLoading ? (
+              <Button variant="primary" size="lg" disabled>불러오는 중...</Button>
+            ) : myApplication?.status === "PENDING" ? (
+              <>
+                <Button variant="secondary" size="lg" disabled>승인 대기 중</Button>
+                <Button variant="ghost" size="lg" onClick={handleCancelApplication} disabled={cancelLoading}>
+                  {cancelLoading ? "취소 중..." : "신청 취소"}
+                </Button>
+              </>
+            ) : myApplication?.status === "APPROVED" ? (
+              <Button variant="secondary" size="lg" disabled>이미 참여 중인 모임이에요</Button>
+            ) : (
+              <Button variant="primary" size="lg" onClick={handleApply} disabled={applyLoading || group.status !== "RECRUITING"}>
+                {applyLoading ? "신청 중..." : group.status === "RECRUITING" ? "참여 신청하기" : "모집 마감됨"}
+              </Button>
+            )}
+            <Button
+              variant="secondary"
+              size="lg"
+              iconLeft={<Icon name={saved ? "bookmark-check" : "bookmark"} size={16} />}
+              onClick={() => toggleSave({
+                id: String(group.groupId),
+                type: "group",
+                title: group.title,
+                category: "스터디",
+                categoryTone: "violet",
+                when: group.meetingRule,
+                where: group.location,
+                host: "",
+                members: group.currentMemberCount,
+                capacity: group.maxMemberCount,
+              })}
+            >
+              {saved ? "저장됨" : "저장"}
+            </Button>
+          </div>
         </div>
       </div>
+
+      {deleting && (
+        <div style={{ position: "fixed", inset: 0, background: "rgba(0,0,0,0.4)", display: "flex", alignItems: "center", justifyContent: "center", zIndex: 100, padding: 24 }}>
+          <div style={{ background: "var(--canvas)", borderRadius: "var(--radius-xl)", padding: 28, width: "100%", maxWidth: 380, boxShadow: "var(--shadow-raised)" }}>
+            <div style={{ width: 48, height: 48, borderRadius: "var(--radius-full)", background: "rgba(239,68,68,.1)", display: "inline-flex", alignItems: "center", justifyContent: "center", marginBottom: 16 }}>
+              <Icon name="trash-2" size={22} color="var(--error)" />
+            </div>
+            <h2 style={{ margin: "0 0 var(--space-xs)", fontFamily: "var(--font-display)", fontSize: 22, fontWeight: 600, letterSpacing: "-0.5px", color: "var(--ink)" }}>모임을 삭제할까요?</h2>
+            <p style={{ margin: "0 0 var(--space-lg)", fontFamily: "var(--font-sans)", fontSize: 14, lineHeight: 1.6, color: "var(--body)" }}>
+              삭제하면 되돌릴 수 없고, 참여 중인 멤버도 모두 모임에서 제거돼요.
+            </p>
+            {deleteError && (
+              <p style={{ margin: "0 0 var(--space-md)", color: "var(--danger, red)", fontSize: 13 }}>{deleteError}</p>
+            )}
+            <div style={{ display: "flex", gap: 10 }}>
+              <Button variant="secondary" size="lg" fullWidth onClick={() => setDeleting(false)} disabled={deleteLoading}>취소</Button>
+              <Button variant="primary" size="lg" fullWidth onClick={handleDelete} disabled={deleteLoading} style={{ background: "var(--error)" }}>
+                {deleteLoading ? "삭제 중..." : "삭제하기"}
+              </Button>
+            </div>
+          </div>
+        </div>
+      )}
     </AppShell>
   );
 }
