@@ -8,6 +8,7 @@ import { HomePage } from "./pages/HomePage";
 import { GroupDetailPage } from "./pages/GroupDetailPage";
 import { GroupFormPage } from "./pages/GroupFormPage";
 import { EventDetailPage } from "./pages/EventDetailPage";
+import { EventFormPage } from "./pages/EventFormPage";
 import { ApplyCompletePage } from "./pages/ApplyCompletePage";
 import { ApplyFailedPage } from "./pages/ApplyFailedPage";
 import { MyGroupsPage } from "./pages/MyGroupsPage";
@@ -26,7 +27,9 @@ export const router = createBrowserRouter([
   { path: "/groups/new", element: <GroupFormPage /> },
   { path: "/groups/:groupId", element: <GroupDetailPage /> },
   { path: "/groups/:groupId/edit", element: <GroupFormPage /> },
+  { path: "/events/new", element: <EventFormPage /> },
   { path: "/events/:eventId", element: <EventDetailPage /> },
+  { path: "/events/:eventId/edit", element: <EventFormPage /> },
   { path: "/apply/complete", element: <ApplyCompletePage /> },
   { path: "/apply/failed", element: <ApplyFailedPage /> },
   { path: "/my-groups", element: <MyGroupsPage /> },

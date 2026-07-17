@@ -5,6 +5,7 @@ import { Button } from "../components/ds/actions/Button";
 import { Input } from "../components/ds/forms/Input";
 import { Textarea } from "../components/ds/forms/Textarea";
 import { Field } from "../components/ds/forms/Field";
+import { Select } from "../components/ds/forms/Select";
 import { Icon } from "../components/ds/foundations/Icon";
 import {
   createGroup,
@@ -13,6 +14,7 @@ import {
   type GroupRequest,
   type RecruitingRoleRequest,
 } from "../api/groupApi";
+import { getListings, type HackathonListingItem } from "../api/listingApi";
 
 interface RoleRow extends RecruitingRoleRequest {
   key: string;
@@ -34,9 +36,17 @@ export function GroupFormPage(): JSX.Element {
   const [meetingRule, setMeetingRule] = React.useState("");
   const [location, setLocation] = React.useState("");
   const [roles, setRoles] = React.useState<RoleRow[]>([emptyRole()]);
+  const [eventId, setEventId] = React.useState<string>("");
+  const [events, setEvents] = React.useState<HackathonListingItem[]>([]);
   const [error, setError] = React.useState<string | null>(null);
   const [loading, setLoading] = React.useState(false);
   const [loadingDetail, setLoadingDetail] = React.useState(isEditMode);
+
+  React.useEffect(() => {
+    getListings()
+      .then((res) => setEvents(res.data.filter((i): i is HackathonListingItem => i.category === "HACKATHON")))
+      .catch((err) => console.error("행사 목록 조회 실패:", err));
+  }, []);
 
   React.useEffect(() => {
     if (!isEditMode || !groupId) return;
@@ -48,6 +58,7 @@ export function GroupFormPage(): JSX.Element {
         setMaxMemberCount(String(g.maxMemberCount));
         setMeetingRule(g.meetingRule);
         setLocation(g.location);
+        setEventId(g.eventId ? String(g.eventId) : "");
         setRoles(
           g.recruitingRoles.length > 0
             ? g.recruitingRoles.map((r) => ({ key: `${Date.now()}-${Math.random()}`, role: r.role, skill: r.skill ?? "" }))
@@ -94,6 +105,7 @@ export function GroupFormPage(): JSX.Element {
       meetingRule: meetingRule.trim(),
       location: location.trim(),
       recruitingRoles,
+      eventId: eventId ? Number(eventId) : null,
     };
 
     setError(null);
@@ -139,36 +151,46 @@ export function GroupFormPage(): JSX.Element {
         </p>
 
         <div style={{ display: "flex", flexDirection: "column", gap: 20 }}>
-          <Field label="모임 이름">
-            <Input placeholder="주말 알고리즘 스터디" value={title} onChange={(e: React.ChangeEvent<HTMLInputElement>) => setTitle(e.target.value)} />
+          <Field label="모임 이름" labelAside={`${title.length} / 100자`}>
+            <Input placeholder="주말 알고리즘 스터디" maxLength={100} value={title} onChange={(e: React.ChangeEvent<HTMLInputElement>) => setTitle(e.target.value)} />
           </Field>
 
-          <Field label="모임 소개">
-            <Textarea rows={4} placeholder="어떤 모임인지 소개해주세요" value={description} onChange={(e: React.ChangeEvent<HTMLTextAreaElement>) => setDescription(e.target.value)} />
+          <Field label="모임 소개" labelAside={`${description.length} / 2000자`}>
+            <Textarea rows={4} maxLength={2000} placeholder="어떤 모임인지, 어떤 활동을 하는지, 어떤 사람과 함께하고 싶은지 소개해주세요" value={description} onChange={(e: React.ChangeEvent<HTMLTextAreaElement>) => setDescription(e.target.value)} />
           </Field>
 
           <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 16 }}>
             <Field label="정원 (리더 포함)">
               <Input type="number" min={1} max={100} placeholder="8" value={maxMemberCount} onChange={(e: React.ChangeEvent<HTMLInputElement>) => setMaxMemberCount(e.target.value)} />
             </Field>
-            <Field label="장소">
-              <Input placeholder="강남" value={location} onChange={(e: React.ChangeEvent<HTMLInputElement>) => setLocation(e.target.value)} />
+            <Field label="장소" hint="구체적인 지역이나 건물명을 적어보세요">
+              <Input placeholder="강남 / 신촌 / 온라인(비대면)" maxLength={200} value={location} onChange={(e: React.ChangeEvent<HTMLInputElement>) => setLocation(e.target.value)} />
             </Field>
           </div>
 
-          <Field label="모임 일정">
-            <Input placeholder="매주 토요일 오후 2시" value={meetingRule} onChange={(e: React.ChangeEvent<HTMLInputElement>) => setMeetingRule(e.target.value)} />
+          <Field label="모임 일정" hint="모이는 요일·시간, 온/오프라인 여부, 진행 방식 등을 자유롭게 적어보세요">
+            <Input placeholder="매주 토요일 오후 2시 · 온라인 병행" maxLength={1000} value={meetingRule} onChange={(e: React.ChangeEvent<HTMLInputElement>) => setMeetingRule(e.target.value)} />
           </Field>
+
+          {events.length > 0 && (
+            <Field label="연계 행사" hint="특정 해커톤·행사를 위한 팀이라면 연결해보세요 (선택)">
+              <Select
+                value={eventId}
+                onChange={(e: React.ChangeEvent<HTMLSelectElement>) => setEventId(e.target.value)}
+                options={[{ value: "", label: "연결 안 함" }, ...events.map((ev) => ({ value: String(ev.eventId), label: ev.title }))]}
+              />
+            </Field>
+          )}
 
           <Field label="모집 역할" hint="역할을 비워두면 저장 시 제외돼요">
             <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
               {roles.map((r) => (
                 <div key={r.key} style={{ display: "flex", gap: 8 }}>
                   <div style={{ flex: 1 }}>
-                    <Input placeholder="역할 (예: 프론트엔드)" value={r.role} onChange={(e: React.ChangeEvent<HTMLInputElement>) => updateRole(r.key, { role: e.target.value })} />
+                    <Input placeholder="역할 (예: 프론트엔드)" maxLength={100} value={r.role} onChange={(e: React.ChangeEvent<HTMLInputElement>) => updateRole(r.key, { role: e.target.value })} />
                   </div>
                   <div style={{ flex: 1 }}>
-                    <Input placeholder="필요 기술 (예: React)" value={r.skill ?? ""} onChange={(e: React.ChangeEvent<HTMLInputElement>) => updateRole(r.key, { skill: e.target.value })} />
+                    <Input placeholder="필요 기술 (예: React)" maxLength={100} value={r.skill ?? ""} onChange={(e: React.ChangeEvent<HTMLInputElement>) => updateRole(r.key, { skill: e.target.value })} />
                   </div>
                   <Button variant="ghost" onClick={() => removeRole(r.key)} disabled={roles.length === 1} aria-label="역할 삭제">
                     <Icon name="x" size={16} />
