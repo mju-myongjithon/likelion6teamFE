@@ -1,0 +1,26 @@
+<!DOCTYPE html>
+<html>
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<!-- @template name="마이페이지" description="CampusLink 마이페이지 — 프로필, 활동 통계, 캘린더" -->
+<helmet>
+<script src="https://unpkg.com/react@18.3.1/umd/react.production.min.js"></script>
+<script src="https://unpkg.com/react-dom@18.3.1/umd/react-dom.production.min.js"></script>
+<script src="https://unpkg.com/lucide@latest"></script>
+<script src="./ds-base.js"></script>
+<script src="./app-shell.js"></script>
+<style>
+  html, body { height: 100%; margin: 0; }
+  *, *::before, *::after { box-sizing: border-box; }
+  a:hover { color: var(--ink); }
+</style>
+</helmet>
+<x-import component-from-global-scope="campuslink-mypage" from="./MyPage.preview.jsx" hint-size="100%,820px"></x-import>
+</x-dc>
+</body>
+</html>
