@@ -7,27 +7,7 @@ import {
   removeEventScrap,
   type ScrapItem,
 } from "../api/scrapApi";
-
-export interface SavedItem {
-  id: string;
-  type: "group" | "event";
-  title: string;
-  category: string;
-  categoryTone: string;
-  when: string;
-  where: string;
-  host: string;
-  members: number;
-  capacity: number;
-}
-
-interface SavedItemsContextValue {
-  savedItems: SavedItem[];
-  isSaved: (id: string) => boolean;
-  toggleSave: (item: SavedItem) => void;
-}
-
-const SavedItemsContext = React.createContext<SavedItemsContextValue | null>(null);
+import { SavedItemsContext, type SavedItem } from "./savedItems";
 
 function scrapItemToSavedItem(item: ScrapItem): SavedItem {
   if (item.category === "STUDY") {
@@ -96,10 +76,4 @@ export function SavedItemsProvider({ children }: { children: React.ReactNode }):
       {children}
     </SavedItemsContext.Provider>
   );
-}
-
-export function useSavedItems(): SavedItemsContextValue {
-  const ctx = React.useContext(SavedItemsContext);
-  if (!ctx) throw new Error("useSavedItems must be used within SavedItemsProvider");
-  return ctx;
 }

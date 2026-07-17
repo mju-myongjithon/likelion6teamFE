@@ -9,16 +9,30 @@ export interface TextareaProps extends React.TextareaHTMLAttributes<HTMLTextArea
 /**
  * Textarea — multi-line text field matching Input (hairline border, ink text).
  */
-export function Textarea({ invalid = false, disabled = false, rows = 3, style = {}, ...rest }: TextareaProps): JSX.Element {
+export function Textarea({
+  invalid = false,
+  disabled = false,
+  rows = 3,
+  style = {},
+  onFocus,
+  onBlur,
+  ...rest
+}: TextareaProps): JSX.Element {
   const [focused, setFocused] = React.useState(false);
   const borderColor = invalid ? "var(--error)" : focused ? "var(--ink)" : "var(--hairline)";
   return (
     <textarea
       rows={rows}
       disabled={disabled}
-      onFocus={(e) => { setFocused(true); rest.onFocus && rest.onFocus(e); }}
-      onBlur={(e) => { setFocused(false); rest.onBlur && rest.onBlur(e); }}
       {...rest}
+      onFocus={(e) => {
+        setFocused(true);
+        onFocus?.(e);
+      }}
+      onBlur={(e) => {
+        setFocused(false);
+        onBlur?.(e);
+      }}
       style={{
         width: "100%",
         resize: "vertical",

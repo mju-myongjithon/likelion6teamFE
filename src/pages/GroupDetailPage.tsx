@@ -9,7 +9,7 @@ import { Badge } from "../components/ds/display/Badge";
 import { Avatar, type AvatarTone } from "../components/ds/display/Avatar";
 import { Callout } from "../components/ds/feedback/Callout";
 import { Icon } from "../components/ds/foundations/Icon";
-import { useSavedItems } from "../context/SavedItemsContext";
+import { useSavedItems } from "../context/savedItems";
 import {
   getGroupDetail,
   deleteGroup,

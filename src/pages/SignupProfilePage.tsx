@@ -1,4 +1,5 @@
 import React from "react";
+import axios from "axios";
 import { useNavigate, useLocation } from "react-router-dom";
 import { Button } from "../components/ds/actions/Button";
 import { Input } from "../components/ds/forms/Input";
@@ -14,14 +15,20 @@ const INTERESTS = ["AI/머신러닝", "웹개발", "앱개발", "게임개발", 
 const PURPOSES = ["프로젝트", "스터디", "친목", "행사·네트워킹"];
 const ROLES = ["프론트엔드", "기획", "디자인", "백엔드", "데이터"];
 
-function useToggle(initial: string[], max?: number): [string[], (t: string) => void, (v: string[]) => void] {
+function apiErrorMessage(error: unknown, fallback: string): string {
+  return axios.isAxiosError<{ message?: string }>(error)
+    ? error.response?.data?.message ?? fallback
+    : fallback;
+}
+
+function useToggle(initial: string[], max?: number): [string[], (t: string) => void] {
   const [sel, setSel] = React.useState<string[]>(initial);
   const toggle = (t: string) => setSel((s) => {
     if (s.includes(t)) return s.filter((x) => x !== t);
     if (max && s.length >= max) return s;
     return [...s, t];
   });
-  return [sel, toggle, setSel];
+  return [sel, toggle];
 }
 
 interface ChipRowProps {
@@ -61,9 +68,9 @@ export function SignupProfilePage(): JSX.Element {
   const [departmentName, setDepartmentName] = React.useState(existing?.departmentName ?? "");
   const [residenceArea, setResidenceArea] = React.useState(existing?.residenceArea ?? "");
   const [bio, setBio] = React.useState(existing?.bio ?? "");
-  const [interests, toggleInterest, setInterests] = useToggle(existing?.interests ?? ["AI/머신러닝", "웹개발", "창업"], 3);
-  const [purpose, togglePurpose, setPurpose] = useToggle(existing?.purposes ?? ["프로젝트"]);
-  const [role, toggleRole, setRole] = useToggle(existing?.roles ?? ["프론트엔드"]);
+  const [interests, toggleInterest] = useToggle(existing?.interests ?? ["AI/머신러닝", "웹개발", "창업"], 3);
+  const [purpose, togglePurpose] = useToggle(existing?.purposes ?? ["프로젝트"]);
+  const [role, toggleRole] = useToggle(existing?.roles ?? ["프론트엔드"]);
   const [error, setError] = React.useState<string | null>(null);
   const [loading, setLoading] = React.useState(false);
 
@@ -72,21 +79,6 @@ export function SignupProfilePage(): JSX.Element {
       navigate("/signup");
     }
   }, [prevState, isEditMode, navigate]);
-
-  // edit 모드로 들어왔을 때 기존 값으로 필드 채우기
-  React.useEffect(() => {
-    if (existing) {
-      setName(existing.name);
-      setSchoolName(existing.schoolName);
-      setDepartmentName(existing.departmentName);
-      setResidenceArea(existing.residenceArea);
-      setBio(existing.bio ?? "");
-      setInterests(existing.interests);
-      setPurpose(existing.purposes);
-      setRole(existing.roles);
-    }
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [existing?.userId]);
 
   const handleSubmit = async () => {
     if (!name || !schoolName || !departmentName || !residenceArea) {
@@ -117,8 +109,8 @@ export function SignupProfilePage(): JSX.Element {
         },
       });
       navigate("/home");
-    } catch (err: any) {
-      setError(err?.response?.data?.message ?? "회원가입에 실패했습니다.");
+    } catch (err: unknown) {
+      setError(apiErrorMessage(err, "회원가입에 실패했습니다."));
     } finally {
       setLoading(false);
     }
@@ -143,8 +135,8 @@ export function SignupProfilePage(): JSX.Element {
         roles: role,
       });
       navigate("/mypage");
-    } catch (err: any) {
-      setError(err?.response?.data?.message ?? "프로필 저장에 실패했습니다.");
+    } catch (err: unknown) {
+      setError(apiErrorMessage(err, "프로필 저장에 실패했습니다."));
     } finally {
       setLoading(false);
     }
