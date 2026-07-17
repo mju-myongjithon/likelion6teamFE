@@ -10,7 +10,15 @@ export interface InputProps extends React.InputHTMLAttributes<HTMLInputElement> 
 /**
  * Input — standard text field. 40px, hairline border, ink text on white.
  */
-export function Input({ iconLeft = null, invalid = false, disabled = false, style = {}, ...rest }: InputProps): JSX.Element {
+export function Input({
+  iconLeft = null,
+  invalid = false,
+  disabled = false,
+  style = {},
+  onFocus,
+  onBlur,
+  ...rest
+}: InputProps): JSX.Element {
   const [focused, setFocused] = React.useState(false);
   const borderColor = invalid
     ? "var(--error)"
@@ -36,9 +44,15 @@ export function Input({ iconLeft = null, invalid = false, disabled = false, styl
       {iconLeft && <span style={{ display: "inline-flex", color: "var(--muted)" }}>{iconLeft}</span>}
       <input
         disabled={disabled}
-        onFocus={(e) => { setFocused(true); rest.onFocus && rest.onFocus(e); }}
-        onBlur={(e) => { setFocused(false); rest.onBlur && rest.onBlur(e); }}
         {...rest}
+        onFocus={(e) => {
+          setFocused(true);
+          onFocus?.(e);
+        }}
+        onBlur={(e) => {
+          setFocused(false);
+          onBlur?.(e);
+        }}
         style={{
           flex: 1,
           border: "none",

@@ -1,10 +1,17 @@
 import React, { useState } from "react";
+import axios from "axios";
 import { Link, useNavigate } from "react-router-dom";
 import { Button } from "../components/ds/actions/Button";
 import { Input } from "../components/ds/forms/Input";
 import { Field } from "../components/ds/forms/Field";
 import { Icon } from "../components/ds/foundations/Icon";
 import { login } from "../api/authApi";
+
+function apiErrorMessage(error: unknown, fallback: string): string {
+  return axios.isAxiosError<{ message?: string }>(error)
+    ? error.response?.data?.message ?? fallback
+    : fallback;
+}
 
 function Brand(): JSX.Element {
   return (
@@ -43,11 +50,9 @@ export function LoginPage(): JSX.Element {
     try {
       await login({ email, password });
       navigate("/home");
-    } catch (err: any) {
+    } catch (err: unknown) {
       console.error(err);
-      const message =
-        err?.response?.data?.message ?? "로그인에 실패했습니다. 이메일과 비밀번호를 확인해주세요.";
-      setError(message);
+      setError(apiErrorMessage(err, "로그인에 실패했습니다. 이메일과 비밀번호를 확인해주세요."));
     } finally {
       setLoading(false);
     }

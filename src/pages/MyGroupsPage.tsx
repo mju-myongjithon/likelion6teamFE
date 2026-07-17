@@ -6,7 +6,7 @@ import { Badge, type BadgeTone } from "../components/ds/display/Badge";
 import { Avatar, type AvatarTone } from "../components/ds/display/Avatar";
 import { Icon } from "../components/ds/foundations/Icon";
 import { Button } from "../components/ds/actions/Button";
-import { useSavedItems } from "../context/SavedItemsContext";
+import { useSavedItems } from "../context/savedItems";
 import { getMyGroups } from "../api/groupApi";
 import { getMyApplications, cancelMyApplication } from "../api/groupApplicationApi";
 

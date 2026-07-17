@@ -7,7 +7,7 @@ import { Field } from "../components/ds/forms/Field";
 import { Badge } from "../components/ds/display/Badge";
 import { Callout } from "../components/ds/feedback/Callout";
 import { Icon } from "../components/ds/foundations/Icon";
-import { useSavedItems } from "../context/SavedItemsContext";
+import { useSavedItems } from "../context/savedItems";
 import { getEventDetail, type EventDetail } from "../api/eventApi";
 
 interface InquiryItem {
