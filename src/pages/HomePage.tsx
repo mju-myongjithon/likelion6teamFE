@@ -10,7 +10,7 @@ import { Button } from "../components/ds/actions/Button";
 import { Icon } from "../components/ds/foundations/Icon";
 import { getMyProfile } from "../api/profileApi";
 import { getListings, type StudyListingItem, type HackathonListingItem } from "../api/listingApi";
-import { getRecommendations } from "../api/recommendationApi";
+import { getRecommendations, type RecommendationItem } from "../api/recommendationApi";
 
 const CATEGORIES = ["전체", "스터디", "해커톤(대회)"];
 
@@ -133,6 +133,7 @@ export function HomePage(): JSX.Element {
   const [userName, setUserName] = React.useState<string>("");
   const [apiMeetups, setApiMeetups] = React.useState<MeetupData[]>([]);
   const [apiEvents, setApiEvents] = React.useState<EventData[]>([]);
+  const [recommendations, setRecommendations] = React.useState<RecommendationItem[] | null>(null);
   const [recommendationReasons, setRecommendationReasons] = React.useState<string[]>([]);
   const [loadingListings, setLoadingListings] = React.useState(true);
 
@@ -143,23 +144,17 @@ export function HomePage(): JSX.Element {
   }, []);
 
   React.useEffect(() => {
-    Promise.all([getListings(), getRecommendations()])
-      .then(([listingsResponse, recommendationsResponse]) => {
+    getListings()
+      .then((listingsResponse) => {
         const studyItems = listingsResponse.data.filter(
           (item): item is StudyListingItem => item.category === "STUDY"
         );
         const hackathonItems = listingsResponse.data.filter(
           (item): item is HackathonListingItem => item.category === "HACKATHON"
         );
-        const studiesById = new Map(studyItems.map((item) => [item.groupId, item]));
-        const hackathonsById = new Map(hackathonItems.map((item) => [item.eventId, item]));
 
         setApiMeetups(
-          recommendationsResponse.data.flatMap((recommendation) => {
-            if (recommendation.category !== "STUDY") return [];
-            const item = studiesById.get(recommendation.targetId);
-            if (!item) return [];
-            return [{
+          studyItems.map((item) => ({
               id: String(item.groupId),
               title: item.title,
               category: "스터디",
@@ -169,20 +164,16 @@ export function HomePage(): JSX.Element {
               host: "",
               members: item.currentMemberCount,
               capacity: item.maxMemberCount,
-              matchScore: recommendation.score,
+              matchScore: null,
               description: "",
-              matchReason: recommendation.reasons.join(" "),
-            }];
-          })
+              matchReason: "",
+            }))
         );
 
         setApiEvents(
-          recommendationsResponse.data.flatMap((recommendation) => {
-            if (recommendation.category !== "HACKATHON") return [];
-            const item = hackathonsById.get(recommendation.targetId);
-            if (!item) return [];
+          hackathonItems.map((item) => {
             const startDate = new Date(item.startsAt);
-            return [{
+            return {
               id: String(item.eventId),
               month: `${startDate.getMonth() + 1}월`,
               day: String(startDate.getDate()),
@@ -191,22 +182,54 @@ export function HomePage(): JSX.Element {
               venue: item.location,
               tag: "해커톤",
               tagTone: "orange",
-              matchScore: recommendation.score,
+              matchScore: null,
               attendance: "",
               description: "",
-              matchReason: recommendation.reasons.join(" "),
+              matchReason: "",
               features: [],
               schedule: [],
-            }];
+            };
           })
         );
-        setRecommendationReasons(recommendationsResponse.data[0]?.reasons ?? []);
       })
-      .catch((err) => console.error("추천 목록 조회 실패:", err))
+      .catch((err) => console.error("통합 목록 조회 실패:", err))
       .finally(() => setLoadingListings(false));
+
+    getRecommendations()
+      .then((response) => {
+        setRecommendations(response.data);
+        setRecommendationReasons(response.data[0]?.reasons ?? []);
+      })
+      .catch((err) => console.error("추천 정보 조회 실패:", err));
   }, []);
 
-  let meetups = apiMeetups;
+  const meetupsWithRecommendations = recommendations === null
+    ? apiMeetups
+    : recommendations.flatMap((recommendation) => {
+        if (recommendation.category !== "STUDY") return [];
+        const meetup = apiMeetups.find((item) => item.id === String(recommendation.targetId));
+        if (!meetup) return [];
+        return [{
+          ...meetup,
+          matchScore: recommendation.score,
+          matchReason: recommendation.reasons.join(" "),
+        }];
+      });
+
+  const eventsWithRecommendations = recommendations === null
+    ? apiEvents
+    : recommendations.flatMap((recommendation) => {
+        if (recommendation.category !== "HACKATHON") return [];
+        const event = apiEvents.find((item) => item.id === String(recommendation.targetId));
+        if (!event) return [];
+        return [{
+          ...event,
+          matchScore: recommendation.score,
+          matchReason: recommendation.reasons.join(" "),
+        }];
+      });
+
+  let meetups = meetupsWithRecommendations;
   if (cat !== "전체") meetups = meetups.filter((m) => m.category === cat);
   if (q) meetups = meetups.filter((m) => (m.title ?? "").includes(q));
 
@@ -241,8 +264,8 @@ export function HomePage(): JSX.Element {
 
         <SectionTitle>추천 행사</SectionTitle>
         <div style={{ display: "flex", flexDirection: "column", gap: 12 }}>
-          {apiEvents.map((event) => <EventCard key={event.id} {...event} onClick={() => navigate(`/events/${event.id}`)} />)}
-          {!loadingListings && apiEvents.length === 0 && <div style={{ color: "var(--muted)", fontFamily: "var(--font-sans)", padding: 20 }}>등록된 행사가 없어요.</div>}
+          {eventsWithRecommendations.map((event) => <EventCard key={event.id} {...event} onClick={() => navigate(`/events/${event.id}`)} />)}
+          {!loadingListings && eventsWithRecommendations.length === 0 && <div style={{ color: "var(--muted)", fontFamily: "var(--font-sans)", padding: 20 }}>등록된 행사가 없어요.</div>}
         </div>
       </div>
     </AppShell>
