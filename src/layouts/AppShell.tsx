@@ -1,7 +1,5 @@
 import React from "react";
 import { NavLink, useNavigate } from "react-router-dom";
-import { Button } from "../components/ds/actions/Button";
-import { IconButton } from "../components/ds/actions/IconButton";
 import { Input } from "../components/ds/forms/Input";
 import { Avatar } from "../components/ds/display/Avatar";
 import { Icon } from "../components/ds/foundations/Icon";
@@ -61,11 +59,6 @@ function Sidebar(): JSX.Element {
           </NavLink>
         ))}
       </nav>
-      <div style={{ marginTop: "auto", padding: 16, background: "var(--surface-card)", borderRadius: "var(--radius-lg)" }}>
-        <div style={{ fontFamily: "var(--font-sans)", fontSize: 14, fontWeight: 600, color: "var(--ink)" }}>플러스로 업그레이드</div>
-        <div style={{ fontFamily: "var(--font-sans)", fontSize: 13, color: "var(--muted)", margin: "var(--space-xs) 0 var(--space-sm)", lineHeight: 1.4 }}>무제한 신청과 우선 매칭</div>
-        <Button variant="primary" size="sm" fullWidth>업그레이드</Button>
-      </div>
     </aside>
   );
 }
@@ -119,7 +112,6 @@ function Header({ q, setQ }: HeaderProps): JSX.Element {
         <Input placeholder="관심 있는 모임을 검색하세요" iconLeft={<Icon name="search" size={18} />} value={q} onChange={setQ ? (e) => setQ(e.target.value) : undefined} />
       </div>
       <div style={{ marginLeft: "auto", display: "flex", alignItems: "center", gap: 12 }}>
-        <IconButton aria-label="알림"><Icon name="bell" size={18} /></IconButton>
         <span onClick={() => setPopoverOpen((v) => !v)} style={{ cursor: "pointer" }}><Avatar name={profileName || "나"} tone="violet" /></span>
       </div>
       {popoverOpen && (
