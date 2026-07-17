@@ -253,6 +253,7 @@ export function ChatPage(): JSX.Element {
     historyAbortRef.current?.abort();
     const controller = new AbortController();
     historyAbortRef.current = controller;
+    setLoadingMessages(true);
     const knownHighest = messagesRef.current.at(-1)?.messageId ?? null;
     let cursor: number | undefined;
     let recovered: ChatMessageResponse[] = [];
@@ -281,6 +282,8 @@ export function ChatPage(): JSX.Element {
       if (generation === historyGenerationRef.current && !stopForUnauthorized(error)) {
         setMessagesError(errorMessage(error, "재연결 후 메시지를 동기화하지 못했습니다."));
       }
+    } finally {
+      if (generation === historyGenerationRef.current) setLoadingMessages(false);
     }
   }, [stopForUnauthorized]);
 
