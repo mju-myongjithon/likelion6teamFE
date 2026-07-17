@@ -1,4 +1,5 @@
 import React from "react";
+import axios from "axios";
 import { useNavigate, useParams } from "react-router-dom";
 import { AppShell } from "../layouts/AppShell";
 import { Button } from "../components/ds/actions/Button";
@@ -13,6 +14,12 @@ import {
   type GroupRequest,
   type RecruitingRoleRequest,
 } from "../api/groupApi";
+
+function apiErrorMessage(error: unknown, fallback: string): string {
+  return axios.isAxiosError<{ message?: string }>(error)
+    ? error.response?.data?.message ?? fallback
+    : fallback;
+}
 
 interface RoleRow extends RecruitingRoleRequest {
   key: string;
@@ -106,8 +113,8 @@ export function GroupFormPage(): JSX.Element {
         const res = await createGroup(payload);
         navigate(`/groups/${res.data.groupId}`);
       }
-    } catch (err: any) {
-      setError(err?.response?.data?.message ?? "저장에 실패했습니다.");
+    } catch (err: unknown) {
+      setError(apiErrorMessage(err, "저장에 실패했습니다."));
     } finally {
       setLoading(false);
     }

@@ -67,18 +67,42 @@ export function SignupProfilePage(): JSX.Element {
   const [schoolName, setSchoolName] = React.useState(existing?.schoolName ?? "");
   const [departmentName, setDepartmentName] = React.useState(existing?.departmentName ?? "");
   const [residenceArea, setResidenceArea] = React.useState(existing?.residenceArea ?? "");
+  const [residenceLatitude, setResidenceLatitude] = React.useState<number | undefined>(existing?.residenceLatitude ?? undefined);
+  const [residenceLongitude, setResidenceLongitude] = React.useState<number | undefined>(existing?.residenceLongitude ?? undefined);
   const [bio, setBio] = React.useState(existing?.bio ?? "");
   const [interests, toggleInterest] = useToggle(existing?.interests ?? ["AI/머신러닝", "웹개발", "창업"], 3);
   const [purpose, togglePurpose] = useToggle(existing?.purposes ?? ["프로젝트"]);
   const [role, toggleRole] = useToggle(existing?.roles ?? ["프론트엔드"]);
   const [error, setError] = React.useState<string | null>(null);
   const [loading, setLoading] = React.useState(false);
+  const [locating, setLocating] = React.useState(false);
 
   React.useEffect(() => {
     if (!isEditMode && !prevState?.email) {
       navigate("/signup");
     }
   }, [prevState, isEditMode, navigate]);
+
+  const captureCurrentLocation = (): void => {
+    if (!navigator.geolocation) {
+      setError("이 브라우저에서는 현재 위치를 사용할 수 없습니다.");
+      return;
+    }
+    setLocating(true);
+    navigator.geolocation.getCurrentPosition(
+      (position) => {
+        setResidenceLatitude(position.coords.latitude);
+        setResidenceLongitude(position.coords.longitude);
+        setLocating(false);
+        setError(null);
+      },
+      () => {
+        setLocating(false);
+        setError("위치 권한을 허용하거나 브라우저 위치 설정을 확인해주세요.");
+      },
+      { enableHighAccuracy: false, timeout: 10_000 },
+    );
+  };
 
   const handleSubmit = async () => {
     if (!name || !schoolName || !departmentName || !residenceArea) {
@@ -102,6 +126,8 @@ export function SignupProfilePage(): JSX.Element {
           schoolName,
           departmentName,
           residenceArea,
+          residenceLatitude,
+          residenceLongitude,
           bio,
           interests,
           purposes: purpose,
@@ -129,6 +155,8 @@ export function SignupProfilePage(): JSX.Element {
         schoolName,
         departmentName,
         residenceArea,
+        residenceLatitude,
+        residenceLongitude,
         bio,
         interests,
         purposes: purpose,
@@ -170,7 +198,23 @@ export function SignupProfilePage(): JSX.Element {
             </Field>
           </div>
           <Field label="사는 곳">
-            <Input placeholder="서울 · 성동구" iconLeft={<Icon name="map-pin" size={18} />} value={residenceArea} onChange={(e: React.ChangeEvent<HTMLInputElement>) => setResidenceArea(e.target.value)} />
+            <div style={{ display: "flex", gap: 8 }}>
+              <Input
+                placeholder="서울 · 성동구"
+                iconLeft={<Icon name="map-pin" size={18} />}
+                value={residenceArea}
+                onChange={(e: React.ChangeEvent<HTMLInputElement>) => setResidenceArea(e.target.value)}
+                style={{ flex: 1 }}
+              />
+              <Button variant="secondary" onClick={captureCurrentLocation} disabled={locating}>
+                {locating ? "확인 중..." : residenceLatitude !== undefined ? "위치 갱신" : "현재 위치 사용"}
+              </Button>
+            </div>
+            {residenceLatitude !== undefined && residenceLongitude !== undefined && (
+              <div style={{ marginTop: 6, fontFamily: "var(--font-sans)", fontSize: 12, color: "var(--muted)" }}>
+                약속 장소 추천에 사용할 위치가 저장됩니다.
+              </div>
+            )}
           </Field>
           <Field label="관심사" labelAside={`${interests.length} / 3 선택`}>
             <ChipRow items={INTERESTS} sel={interests} toggle={toggleInterest} />

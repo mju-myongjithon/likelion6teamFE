@@ -6,6 +6,8 @@ export interface ProfileResponse {
   schoolName: string;
   departmentName: string;
   residenceArea: string;
+  residenceLatitude: number | null;
+  residenceLongitude: number | null;
   bio?: string;
   avatarUrl?: string;
   interests: string[];
@@ -20,6 +22,8 @@ export interface ProfileUpdateRequest {
   schoolName: string;
   departmentName: string;
   residenceArea: string;
+  residenceLatitude?: number;
+  residenceLongitude?: number;
   bio?: string;
   avatarUrl?: string;
   interests: string[];

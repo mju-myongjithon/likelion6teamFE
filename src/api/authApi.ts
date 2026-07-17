@@ -10,6 +10,8 @@ export interface SignupProfile {
   schoolName: string;
   departmentName: string;
   residenceArea: string;
+  residenceLatitude?: number;
+  residenceLongitude?: number;
   bio?: string;
   avatarUrl?: string;
   interests: string[];

@@ -37,6 +37,8 @@ jobs:
         run: npm ci
 
       - name: Build
+        env:
+          VITE_KAKAO_MAP_KEY: ${{ secrets.VITE_KAKAO_MAP_KEY }}
         run: npm run build
 
       - name: Prepare deployment artifact

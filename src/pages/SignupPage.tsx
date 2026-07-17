@@ -1,4 +1,5 @@
 import React from "react";
+import axios from "axios";
 import { Link, useNavigate } from "react-router-dom";
 import { Button } from "../components/ds/actions/Button";
 import { Input } from "../components/ds/forms/Input";
@@ -7,6 +8,12 @@ import { Callout } from "../components/ds/feedback/Callout";
 import { ProgressBar } from "../components/ds/feedback/ProgressBar";
 import { Icon } from "../components/ds/foundations/Icon";
 import { sendVerificationCode } from "../api/authApi";
+
+function apiErrorMessage(error: unknown, fallback: string): string {
+  return axios.isAxiosError<{ message?: string }>(error)
+    ? error.response?.data?.message ?? fallback
+    : fallback;
+}
 
 // 백엔드에 별도의 "인증코드 확인" API가 없음 (POST /api/auth/signup 에서
 // email + verificationCode를 함께 검증함). 그래서 여기서는 형식만
@@ -51,8 +58,8 @@ export function SignupPage(): JSX.Element {
     try {
       await sendVerificationCode(email);
       setSent(true);
-    } catch (err: any) {
-      setError(err?.response?.data?.message ?? "인증코드 발송에 실패했습니다.");
+    } catch (err: unknown) {
+      setError(apiErrorMessage(err, "인증코드 발송에 실패했습니다."));
     } finally {
       setSending(false);
     }
