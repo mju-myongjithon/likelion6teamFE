@@ -1,0 +1,106 @@
+name: Deploy frontend to EC2
+
+on:
+  push:
+    branches:
+      - main
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+concurrency:
+  group: frontend-production-deploy
+  cancel-in-progress: false
+
+jobs:
+  publish-and-deploy:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@v6
+
+      - name: Require current main commit
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: test "$(gh api "repos/$GITHUB_REPOSITORY/commits/main" --jq .sha)" = "$GITHUB_SHA"
+
+      - name: Set up Node.js
+        uses: actions/setup-node@v6
+        with:
+          node-version: "22"
+          cache: npm
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Build
+        run: npm run build
+
+      - name: Prepare deployment artifact
+        run: |
+          mkdir -p build/deploy/bundle
+          cp -a dist build/deploy/bundle/dist
+          printf '%s\n' "$GITHUB_SHA" > build/deploy/bundle/VERSION
+          (
+            cd build/deploy/bundle
+            find dist -type f -print0 | sort -z | xargs -0 sha256sum
+            sha256sum VERSION
+          ) > build/deploy/bundle/MANIFEST.sha256
+          tar -czf build/deploy/campuslink-frontend.tar.gz \
+            -C build/deploy/bundle \
+            dist VERSION MANIFEST.sha256
+
+      - name: Publish deployment artifact
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          if ! gh release view frontend-deploy-latest >/dev/null 2>&1; then
+            gh release create frontend-deploy-latest \
+              --target "$GITHUB_SHA" \
+              --title "CampusLink frontend deployment artifact" \
+              --notes "Automated deployment artifact for the production EC2 instance." \
+              --prerelease
+          fi
+
+          gh release upload frontend-deploy-latest \
+            build/deploy/campuslink-frontend.tar.gz \
+            --clobber
+
+      - name: Verify deployed artifact
+        run: |
+          expected="$GITHUB_SHA"
+
+          for attempt in $(seq 1 30); do
+            deployed="$(curl -fsS --max-time 10 \
+              https://52-78-186-220.sslip.io/frontend-version || true)"
+            page="$(curl -fsS --max-time 10 \
+              https://52-78-186-220.sslip.io/ || true)"
+            asset_path="$(printf '%s' "$page" | awk '
+              match($0, /\/assets\/[^"]+\.js/) {
+                print substr($0, RSTART, RLENGTH)
+                exit
+              }
+            ')"
+
+            if [ "$deployed" = "$expected" ] \
+              && printf '%s' "$page" | grep -q '<div id="root"></div>' \
+              && [ -n "$asset_path" ] \
+              && curl -fsS --max-time 10 \
+                "https://52-78-186-220.sslip.io$asset_path" >/dev/null \
+              && curl -fsS --max-time 10 \
+                https://52-78-186-220.sslip.io/api/health >/dev/null \
+              && curl -fsS --max-time 10 \
+                https://52-78-186-220.sslip.io/swagger-ui/index.html >/dev/null \
+              && curl -fsS --max-time 10 \
+                https://52-78-186-220.sslip.io/v3/api-docs >/dev/null; then
+              exit 0
+            fi
+
+            sleep 5
+          done
+
+          echo "The EC2 instance did not deploy and serve $expected successfully." >&2
+          exit 1
