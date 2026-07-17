@@ -1,0 +1,23 @@
+<!DOCTYPE html>
+<html>
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<!-- @template name="Signup — 프로필 등록" description="CampusLink 회원가입 3단계 — 이름/학과/관심사/목적/역할/자기소개/거주지" -->
+<helmet>
+<script src="https://unpkg.com/react@18.3.1/umd/react.production.min.js"></script>
+<script src="https://unpkg.com/react-dom@18.3.1/umd/react-dom.production.min.js"></script>
+<script src="https://unpkg.com/lucide@latest"></script>
+<script src="./ds-base.js"></script>
+<style>
+  a:hover { color: var(--ink); }
+</style>
+</helmet>
+<x-import component-from-global-scope="campuslink-profilesetup" from="./ProfileSetup.preview.jsx" hint-size="100%,900px"></x-import>
+</x-dc>
+</body>
+</html>

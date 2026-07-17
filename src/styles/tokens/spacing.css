@@ -1,0 +1,26 @@
+/* CampusLink — Spacing, radius, elevation tokens. Base unit 4px. */
+:root {
+  --space-xxs: 4px;
+  --space-xs: 8px;
+  --space-sm: 12px;
+  --space-md: 16px;
+  --space-lg: 24px;
+  --space-xl: 32px;
+  --space-xxl: 48px;
+  --space-section: 96px;
+
+  --radius-xs: 4px;
+  --radius-sm: 6px;
+  --radius-md: 8px;    /* buttons, inputs, tabs */
+  --radius-lg: 12px;   /* content cards */
+  --radius-xl: 16px;   /* hero mockup card */
+  --radius-pill: 9999px;
+  --radius-full: 9999px;
+
+  /* Elevation — soft + modern only */
+  --shadow-hairline: 0 0 0 1px var(--hairline);
+  --shadow-soft: 0 1px 2px rgba(0, 0, 0, 0.05);
+  --shadow-raised: 0 4px 12px rgba(0, 0, 0, 0.08);
+
+  --container-max: 1200px;
+}

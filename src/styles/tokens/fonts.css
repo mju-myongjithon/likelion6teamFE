@@ -1,0 +1,14 @@
+/* CampusLink — Web fonts.
+   DISPLAY: Geist (Vercel's open-source geometric face, OFL) — self-hosted via
+   the Fontsource jsDelivr CDN as a real @font-face so it ships to consumers.
+   Body/UI: Inter. Code: JetBrains Mono (both via Google Fonts). */
+@import url("https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500&display=swap");
+
+/* Geist — variable weight 100–900 */
+@font-face {
+  font-family: "Geist";
+  font-style: normal;
+  font-display: swap;
+  font-weight: 100 900;
+  src: url("https://cdn.jsdelivr.net/fontsource/fonts/geist:vf@latest/latin-wght-normal.woff2") format("woff2-variations");
+}
