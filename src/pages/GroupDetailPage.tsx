@@ -9,7 +9,7 @@ import { Avatar, type AvatarTone } from "../components/ds/display/Avatar";
 import { Callout } from "../components/ds/feedback/Callout";
 import { Icon } from "../components/ds/foundations/Icon";
 import { useSavedItems } from "../context/SavedItemsContext";
-import { MEETUPS } from "./HomePage";
+import { getGroupDetail, type GroupDetail } from "../api/groupApi";
 
 interface Member { name: string; tone: AvatarTone; role: string; }
 const MEMBERS: Member[] = [
@@ -59,7 +59,21 @@ function InfoTile({ icon, label, value }: { icon: string; label: string; value: 
 export function GroupDetailPage(): JSX.Element {
   const navigate = useNavigate();
   const { groupId } = useParams<{ groupId: string }>();
-  const group = MEETUPS.find((m) => m.id === groupId) ?? MEETUPS[0];
+  const [group, setGroup] = React.useState<GroupDetail | null>(null);
+  const [loading, setLoading] = React.useState(true);
+  const [loadError, setLoadError] = React.useState<string | null>(null);
+
+  React.useEffect(() => {
+    if (!groupId) return;
+    getGroupDetail(groupId)
+      .then((res) => setGroup(res.data))
+      .catch((err) => {
+        console.error("모임 상세 조회 실패:", err);
+        setLoadError("모임 정보를 불러오지 못했습니다.");
+      })
+      .finally(() => setLoading(false));
+  }, [groupId]);
+
   const [inquiry, setInquiry] = React.useState<string>("");
   const [inquiries, setInquiries] = React.useState<InquiryItem[]>([]);
   const [inquiryError, setInquiryError] = React.useState<string | undefined>(undefined);
@@ -69,7 +83,7 @@ export function GroupDetailPage(): JSX.Element {
   const [, setTick] = React.useState<number>(0);
 
   // 로그인/권한 기능이 아직 없어서 임시로 호스트라고 가정. 실제 로그인 붙으면
-  // currentUser.id === group.hostId 같은 조건으로 교체하면 됨.
+  // currentUser.id === group.leaderUserId 같은 조건으로 교체하면 됨.
   const isHost = true;
   const [replyDraftId, setReplyDraftId] = React.useState<string | null>(null);
   const [replyDraftText, setReplyDraftText] = React.useState<string>("");
@@ -79,8 +93,9 @@ export function GroupDetailPage(): JSX.Element {
     const interval = window.setInterval(() => setTick((t) => t + 1), 60000);
     return () => window.clearInterval(interval);
   }, []);
+
   const { isSaved, toggleSave } = useSavedItems();
-  const saved = isSaved(group.id);
+  const saved = group ? isSaved(String(group.groupId)) : false;
 
   // 문의하기: 프론트엔드 로컬 상태에만 저장 (백엔드 연동 전까지 새로고침 시 초기화됨)
   function handleSubmitInquiry(): void {
@@ -144,6 +159,22 @@ export function GroupDetailPage(): JSX.Element {
     inquiryPage * INQUIRIES_PER_PAGE
   );
 
+  if (loading) {
+    return (
+      <AppShell>
+        <div style={{ padding: 28 }}>불러오는 중...</div>
+      </AppShell>
+    );
+  }
+
+  if (loadError || !group) {
+    return (
+      <AppShell>
+        <div style={{ padding: 28, color: "var(--danger, red)" }}>{loadError ?? "모임을 찾을 수 없습니다."}</div>
+      </AppShell>
+    );
+  }
+
   return (
     <AppShell>
       <div style={{ padding: 28, maxWidth: 780 }}>
@@ -151,15 +182,19 @@ export function GroupDetailPage(): JSX.Element {
           <Icon name="arrow-left" size={16} color="var(--muted)" /> 목록으로
         </a>
         <div style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: 14 }}>
-          <Badge tone={group.categoryTone}>{group.category}</Badge>
-          <span style={{ display: "inline-flex", alignItems: "center", gap: 4, fontFamily: "var(--font-sans)", fontSize: 13, fontWeight: 600, color: "var(--brand-accent)" }}>✦ {group.matchScore}% 일치</span>
+          <Badge tone="violet">스터디</Badge>
+          {group.status === "RECRUITING" ? (
+            <Badge tone="emerald">모집중</Badge>
+          ) : (
+            <Badge tone="neutral">모집마감</Badge>
+          )}
         </div>
         <h1 className="cl-display-sm" style={{ margin: "0 0 var(--space-sm)", textWrap: "pretty" }}>{group.title}</h1>
         <Callout style={{ marginBottom: 24 }}>관심사와 활동 선호가 잘 맞아 상위로 추천했어요.</Callout>
         <div style={{ display: "grid", gridTemplateColumns: "repeat(3,1fr)", gap: 12, marginBottom: 24 }}>
-          <InfoTile icon="calendar" label="일정" value={group.when ?? ""} />
-          <InfoTile icon="map-pin" label="장소" value={group.where ?? ""} />
-          <InfoTile icon="users" label="참여" value={`${group.members} / ${group.capacity}명`} />
+          <InfoTile icon="calendar" label="일정" value={group.meetingRule} />
+          <InfoTile icon="map-pin" label="장소" value={group.location} />
+          <InfoTile icon="users" label="참여" value={`${group.currentMemberCount} / ${group.maxMemberCount}명`} />
         </div>
         <div style={{ background: "var(--surface-card)", borderRadius: "var(--radius-lg)", padding: 24, marginBottom: 24 }}>
           <div style={{ fontFamily: "var(--font-sans)", fontSize: 16, fontWeight: 600, color: "var(--ink)", marginBottom: 10 }}>모임 소개</div>
@@ -169,10 +204,18 @@ export function GroupDetailPage(): JSX.Element {
         </div>
         <div style={{ marginBottom: 24 }}>
           <div style={{ fontFamily: "var(--font-sans)", fontSize: 16, fontWeight: 600, color: "var(--ink)", marginBottom: 10 }}>모집 중인 역할</div>
-          <Callout>{group.matchReason}</Callout>
+          {group.recruitingRoles.length > 0 ? (
+            <div style={{ display: "flex", flexWrap: "wrap", gap: 8 }}>
+              {group.recruitingRoles.map((r, i) => (
+                <Badge key={i}>{r.role} · {r.skill}</Badge>
+              ))}
+            </div>
+          ) : (
+            <Callout>현재 모집 중인 역할이 없어요.</Callout>
+          )}
         </div>
         <div style={{ marginBottom: 28 }}>
-          <div style={{ fontFamily: "var(--font-sans)", fontSize: 16, fontWeight: 600, color: "var(--ink)", marginBottom: 14 }}>참여 멤버 {group.members}명</div>
+          <div style={{ fontFamily: "var(--font-sans)", fontSize: 16, fontWeight: 600, color: "var(--ink)", marginBottom: 14 }}>참여 멤버 {group.currentMemberCount}명</div>
           <div style={{ display: "flex", flexWrap: "wrap", gap: 16 }}>
             {MEMBERS.map((m) => (
               <div key={m.name} style={{ display: "flex", alignItems: "center", gap: 10 }}>
@@ -392,16 +435,16 @@ export function GroupDetailPage(): JSX.Element {
             size="lg"
             iconLeft={<Icon name={saved ? "bookmark-check" : "bookmark"} size={16} />}
             onClick={() => toggleSave({
-              id: group.id,
+              id: String(group.groupId),
               type: "group",
               title: group.title,
-              category: group.category ?? "",
-              categoryTone: group.categoryTone ?? "neutral",
-              when: group.when ?? "",
-              where: group.where ?? "",
-              host: group.host ?? "",
-              members: group.members ?? 0,
-              capacity: group.capacity ?? 0,
+              category: "스터디",
+              categoryTone: "violet",
+              when: group.meetingRule,
+              where: group.location,
+              host: "",
+              members: group.currentMemberCount,
+              capacity: group.maxMemberCount,
             })}
           >
             {saved ? "저장됨" : "저장"}

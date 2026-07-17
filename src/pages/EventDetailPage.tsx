@@ -8,7 +8,7 @@ import { Badge } from "../components/ds/display/Badge";
 import { Callout } from "../components/ds/feedback/Callout";
 import { Icon } from "../components/ds/foundations/Icon";
 import { useSavedItems } from "../context/SavedItemsContext";
-import { EVENTS } from "./HomePage";
+import { getEventDetail, type EventDetail } from "../api/eventApi";
 
 interface InquiryItem {
   id: string;
@@ -46,11 +46,34 @@ function InfoTile({ icon, label, value }: { icon: string; label: string; value: 
   );
 }
 
+function formatDateTime(iso: string): { month: string; day: string; full: string } {
+  const d = new Date(iso);
+  return {
+    month: `${d.getMonth() + 1}월`,
+    day: String(d.getDate()),
+    full: `${d.getMonth() + 1}/${d.getDate()} ${d.toLocaleTimeString("ko-KR", { hour: "numeric", minute: "2-digit" })}`,
+  };
+}
+
 /** 추천 행사 상세 화면. */
 export function EventDetailPage(): JSX.Element {
   const navigate = useNavigate();
   const { eventId } = useParams<{ eventId: string }>();
-  const event = EVENTS.find((e) => e.id === eventId) ?? EVENTS[0];
+  const [event, setEvent] = React.useState<EventDetail | null>(null);
+  const [loading, setLoading] = React.useState(true);
+  const [loadError, setLoadError] = React.useState<string | null>(null);
+
+  React.useEffect(() => {
+    if (!eventId) return;
+    getEventDetail(eventId)
+      .then((res) => setEvent(res.data))
+      .catch((err) => {
+        console.error("행사 상세 조회 실패:", err);
+        setLoadError("행사 정보를 불러오지 못했습니다.");
+      })
+      .finally(() => setLoading(false));
+  }, [eventId]);
+
   const [inquiry, setInquiry] = React.useState<string>("");
   const [inquiries, setInquiries] = React.useState<InquiryItem[]>([]);
   const [inquiryError, setInquiryError] = React.useState<string | undefined>(undefined);
@@ -59,20 +82,17 @@ export function EventDetailPage(): JSX.Element {
   const INQUIRIES_PER_PAGE = 5;
   const [, setTick] = React.useState<number>(0);
 
-  // 로그인/권한 기능이 아직 없어서 임시로 호스트(주최측)라고 가정.
-  // 실제 로그인 붙으면 currentUser.id === event.hostId 같은 조건으로 교체.
   const isHost = true;
   const [replyDraftId, setReplyDraftId] = React.useState<string | null>(null);
   const [replyDraftText, setReplyDraftText] = React.useState<string>("");
 
-  // "방금" → "1분 전" 처럼 시간 표시가 저절로 갱신되도록 1분마다 리렌더
   React.useEffect(() => {
     const interval = window.setInterval(() => setTick((t) => t + 1), 60000);
     return () => window.clearInterval(interval);
   }, []);
 
   const { isSaved, toggleSave } = useSavedItems();
-  const saved = isSaved(event.id);
+  const saved = event ? isSaved(String(event.eventId)) : false;
 
   function handleSubmitInquiry(): void {
     const trimmed = inquiry.trim();
@@ -135,6 +155,24 @@ export function EventDetailPage(): JSX.Element {
     inquiryPage * INQUIRIES_PER_PAGE
   );
 
+  if (loading) {
+    return (
+      <AppShell>
+        <div style={{ padding: "var(--space-xl)" }}>불러오는 중...</div>
+      </AppShell>
+    );
+  }
+
+  if (loadError || !event) {
+    return (
+      <AppShell>
+        <div style={{ padding: "var(--space-xl)", color: "var(--danger, red)" }}>{loadError ?? "행사를 찾을 수 없습니다."}</div>
+      </AppShell>
+    );
+  }
+
+  const start = formatDateTime(event.startsAt);
+
   return (
     <AppShell>
       <div style={{ padding: "var(--space-xl)", maxWidth: 780 }}>
@@ -143,45 +181,39 @@ export function EventDetailPage(): JSX.Element {
         </a>
         <div style={{ display: "flex", gap: "var(--space-lg)", alignItems: "flex-start", marginBottom: "var(--space-lg)" }}>
           <div style={{ flexShrink: 0, width: 88, height: 96, borderRadius: "var(--radius-lg)", background: "var(--surface-dark)", color: "var(--on-dark)", display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center", gap: "var(--space-xxs)" }}>
-            <span style={{ fontFamily: "var(--font-sans)", fontSize: 14, opacity: 0.75 }}>{event.month}</span>
-            <span style={{ fontFamily: "var(--font-display)", fontSize: 40, fontWeight: 600, letterSpacing: "-1px", lineHeight: 1 }}>{event.day}</span>
+            <span style={{ fontFamily: "var(--font-sans)", fontSize: 14, opacity: 0.75 }}>{start.month}</span>
+            <span style={{ fontFamily: "var(--font-display)", fontSize: 40, fontWeight: 600, letterSpacing: "-1px", lineHeight: 1 }}>{start.day}</span>
           </div>
           <div style={{ flex: 1 }}>
             <div style={{ display: "flex", alignItems: "center", gap: "var(--space-xs)", marginBottom: "var(--space-sm)" }}>
-              <Badge tone={event.tagTone ?? "neutral"}>{event.tag}</Badge>
-              <span style={{ display: "inline-flex", alignItems: "center", gap: 4, fontFamily: "var(--font-sans)", fontSize: 13, fontWeight: 600, color: "var(--brand-accent)" }}>✦ {event.matchScore}% 일치</span>
+              <Badge tone="orange">해커톤</Badge>
             </div>
             <h1 className="cl-display-sm" style={{ margin: 0, textWrap: "pretty" }}>{event.title}</h1>
           </div>
         </div>
-        <Callout style={{ marginBottom: "var(--space-lg)" }}>{event.matchReason}</Callout>
+        <Callout style={{ marginBottom: "var(--space-lg)" }}>주최: {event.organizer}</Callout>
         <div style={{ display: "grid", gridTemplateColumns: "repeat(3,1fr)", gap: "var(--space-sm)", marginBottom: "var(--space-lg)" }}>
-          <InfoTile icon="clock" label="시작" value={`${event.month}/${event.day} ${event.time ?? ""}`} />
-          <InfoTile icon="map-pin" label="장소" value={event.venue ?? ""} />
-          <InfoTile icon="users" label="참석" value={event.attendance ?? ""} />
+          <InfoTile icon="clock" label="시작" value={start.full} />
+          <InfoTile icon="map-pin" label="장소" value={event.location} />
+          <InfoTile icon="calendar" label="신청 마감" value={formatDateTime(event.applicationDeadlineAt).full} />
         </div>
         <div style={{ background: "var(--surface-card)", borderRadius: "var(--radius-lg)", padding: "var(--space-lg)", marginBottom: "var(--space-lg)" }}>
           <div style={{ fontFamily: "var(--font-sans)", fontSize: 16, fontWeight: 600, color: "var(--ink)", marginBottom: "var(--space-sm)" }}>행사 소개</div>
           <p style={{ margin: "0 0 var(--space-md)", fontFamily: "var(--font-sans)", fontSize: 15, lineHeight: 1.6, color: "var(--body)" }}>
             {event.description}
           </p>
-          <div style={{ display: "flex", flexWrap: "wrap", gap: "var(--space-xs)" }}>
-            {event.features.map((t) => <Badge key={t}>{t}</Badge>)}
-          </div>
-        </div>
-        <div style={{ marginBottom: "var(--space-lg)" }}>
-          <div style={{ fontFamily: "var(--font-sans)", fontSize: 16, fontWeight: 600, color: "var(--ink)", marginBottom: "var(--space-md)" }}>일정</div>
-          <div style={{ display: "flex", flexDirection: "column", gap: "var(--space-sm)" }}>
-            {event.schedule.map((s, i) => (
-              <div key={i} style={{ display: "flex", alignItems: "center", gap: "var(--space-md)", padding: "var(--space-md)", border: "1px solid var(--hairline)", borderRadius: "var(--radius-lg)" }}>
-                <div style={{ flexShrink: 0, width: 72, fontFamily: "var(--font-sans)", fontSize: 13, fontWeight: 600, color: "var(--ink)" }}>{s.date}</div>
-                <div>
-                  <div style={{ fontFamily: "var(--font-sans)", fontSize: 14, fontWeight: 600, color: "var(--ink)" }}>{s.title}</div>
-                  {s.time && <div style={{ fontFamily: "var(--font-sans)", fontSize: 13, color: "var(--muted)" }}>{s.time}</div>}
-                </div>
-              </div>
-            ))}
-          </div>
+          {event.tags.length > 0 && (
+            <div style={{ display: "flex", flexWrap: "wrap", gap: "var(--space-xs)" }}>
+              {event.tags.map((t) => <Badge key={t}>{t}</Badge>)}
+            </div>
+          )}
+          {event.relatedUrl && (
+            <div style={{ marginTop: "var(--space-md)" }}>
+              <a href={event.relatedUrl} target="_blank" rel="noreferrer" style={{ fontFamily: "var(--font-sans)", fontSize: 14, color: "var(--brand-accent)" }}>
+                관련 링크 바로가기 →
+              </a>
+            </div>
+          )}
         </div>
         <div style={{ marginBottom: "var(--space-xl)" }}>
           <Field label="문의">
@@ -250,7 +282,6 @@ export function EventDetailPage(): JSX.Element {
                     </button>
                   </div>
 
-                  {/* 주최측 답변 (등록된 경우) */}
                   {q.reply && (
                     <div
                       style={{
@@ -268,7 +299,6 @@ export function EventDetailPage(): JSX.Element {
                     </div>
                   )}
 
-                  {/* 호스트(주최측)에게만 보이는 답변 작성 UI */}
                   {isHost && !q.reply && (
                     <div style={{ marginTop: "var(--space-sm)", marginLeft: 22 }}>
                       {replyDraftId === q.id ? (
@@ -390,14 +420,14 @@ export function EventDetailPage(): JSX.Element {
             size="lg"
             iconLeft={<Icon name={saved ? "bookmark-check" : "bookmark"} size={16} />}
             onClick={() => toggleSave({
-              id: event.id,
+              id: String(event.eventId),
               type: "event",
               title: event.title,
-              category: event.tag ?? "",
-              categoryTone: event.tagTone ?? "neutral",
-              when: `${event.month}/${event.day} ${event.time ?? ""}`,
-              where: event.venue ?? "",
-              host: "CampusLink",
+              category: "해커톤",
+              categoryTone: "orange",
+              when: start.full,
+              where: event.location,
+              host: event.organizer,
               members: 0,
               capacity: 0,
             })}
