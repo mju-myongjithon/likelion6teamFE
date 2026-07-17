@@ -1,4 +1,4 @@
-import apiClient from "./client";
+import apiClient from "./axiosInstance";
 
 /** 카페 추천 응답의 개별 항목 — GET /api/groups/{groupId}/cafes/recommendations */
 export interface CafeRecommendation {

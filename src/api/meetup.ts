@@ -5,7 +5,7 @@ import type { ConfirmMeetupRequest, ConfirmedMeetup } from "../components/ds/cha
  * DB 저장 후 확정된 약속 정보를 돌려받는다.
  *
  * TODO(backend): 백엔드 엔드포인트가 준비되면 아래 mock 을 지우고 실제 호출을 사용하세요.
- *   import apiClient from "./client";
+ *   import apiClient from "./axiosInstance";
  *   export async function confirmMeetup(req: ConfirmMeetupRequest): Promise<ConfirmedMeetup> {
  *     const { data } = await apiClient.post<ConfirmedMeetup>("/meetups/confirm", req);
  *     return data;
