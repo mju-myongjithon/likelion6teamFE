@@ -5,11 +5,6 @@ export interface LoginRequest {
   password: string;
 }
 
-export interface SessionResponse {
-  userId: number;
-  email: string;
-}
-
 export interface SignupProfile {
   name: string;
   schoolName: string;
@@ -45,4 +40,4 @@ export const logout = () =>
   apiClient.post('/api/auth/logout');
 
 export const getSession = () =>
-  apiClient.get<SessionResponse>('/api/auth/session');
+  apiClient.get('/api/auth/session');
