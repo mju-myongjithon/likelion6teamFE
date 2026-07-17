@@ -6,6 +6,8 @@ import { Input } from "../components/ds/forms/Input";
 import { Avatar } from "../components/ds/display/Avatar";
 import { Icon } from "../components/ds/foundations/Icon";
 import { ProfilePopover, type ProfilePopoverEvent } from "../components/ds/display/ProfilePopover";
+import { getMyProfile } from "../api/profileApi";
+import { logout } from "../api/authApi";
 
 export type AppNavId = "home" | "my" | "chat" | "mypage";
 
@@ -77,6 +79,17 @@ function Header({ q, setQ }: HeaderProps): JSX.Element {
   const navigate = useNavigate();
   const [popoverOpen, setPopoverOpen] = React.useState(false);
   const popoverRef = React.useRef<HTMLDivElement>(null);
+  const [profileName, setProfileName] = React.useState("");
+  const [profileMeta, setProfileMeta] = React.useState("");
+
+  React.useEffect(() => {
+    getMyProfile()
+      .then((res) => {
+        setProfileName(res.data.name);
+        setProfileMeta(`${res.data.schoolName} · ${res.data.departmentName}`);
+      })
+      .catch((err) => console.error("프로필 조회 실패:", err));
+  }, []);
 
   React.useEffect(() => {
     if (!popoverOpen) return;
@@ -89,6 +102,17 @@ function Header({ q, setQ }: HeaderProps): JSX.Element {
     return () => document.removeEventListener("mousedown", onClickOutside);
   }, [popoverOpen]);
 
+  const handleLogout = async () => {
+    try {
+      await logout();
+    } catch (err) {
+      console.error("로그아웃 실패:", err);
+    } finally {
+      setPopoverOpen(false);
+      navigate("/login");
+    }
+  };
+
   return (
     <header style={{ position: "relative", display: "flex", alignItems: "center", gap: 16, padding: "var(--space-md) var(--space-xl)", borderBottom: "1px solid var(--hairline)", background: "var(--canvas)" }}>
       <div style={{ flex: 1, maxWidth: 420 }}>
@@ -96,17 +120,17 @@ function Header({ q, setQ }: HeaderProps): JSX.Element {
       </div>
       <div style={{ marginLeft: "auto", display: "flex", alignItems: "center", gap: 12 }}>
         <IconButton aria-label="알림"><Icon name="bell" size={18} /></IconButton>
-        <span onClick={() => setPopoverOpen((v) => !v)} style={{ cursor: "pointer" }}><Avatar name="나" tone="violet" /></span>
+        <span onClick={() => setPopoverOpen((v) => !v)} style={{ cursor: "pointer" }}><Avatar name={profileName || "나"} tone="violet" /></span>
       </div>
       {popoverOpen && (
         <div ref={popoverRef} style={{ position: "absolute", top: "calc(100% + 8px)", right: 24, zIndex: 20 }}>
           <ProfilePopover
-            name="정지훈"
-            meta="한양대학교 · 컴퓨터공학과"
+            name={profileName || "..."}
+            meta={profileMeta}
             avatarTone="violet"
             events={PROFILE_EVENTS}
             onViewProfile={() => { setPopoverOpen(false); navigate("/mypage"); }}
-            onLogout={() => { setPopoverOpen(false); navigate("/login"); }}
+            onLogout={handleLogout}
           />
         </div>
       )}
