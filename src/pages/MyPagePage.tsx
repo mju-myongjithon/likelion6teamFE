@@ -9,12 +9,6 @@ import { Calendar } from "../components/ds/display/Calendar";
 import { Icon } from "../components/ds/foundations/Icon";
 import { getMyProfile, type ProfileResponse } from "../api/profileApi";
 
-const ACTIVITY = [
-  { text: "주말 알고리즘 스터디에 참여했어요", when: "2일 전" },
-  { text: "AI 해커톤 2026에 신청했어요", when: "5일 전" },
-  { text: "겨울 디자인 워크샵을 완료했어요", when: "3주 전" },
-];
-
 /** 마이페이지 — 프로필 정보, 활동 통계, 캘린더. */
 export function MyPagePage(): JSX.Element {
   const navigate = useNavigate();
@@ -74,18 +68,8 @@ export function MyPagePage(): JSX.Element {
         <div style={{ display: "grid", gridTemplateColumns: `1fr calc(var(--space-section) * 3 + var(--space-xl))`, gap: 20, alignItems: "start" }}>
           <div>
             <h2 style={{ margin: "0 0 var(--space-md)", fontFamily: "var(--font-sans)", fontSize: 18, fontWeight: 600, color: "var(--ink)" }}>자기소개</h2>
-            <div style={{ background: "var(--surface-card)", borderRadius: "var(--radius-lg)", padding: 20, marginBottom: 28, fontFamily: "var(--font-sans)", fontSize: 15, lineHeight: 1.6, color: "var(--body)" }}>
+            <div style={{ background: "var(--surface-card)", borderRadius: "var(--radius-lg)", padding: 20, marginBottom: 28, fontFamily: "var(--font-sans)", fontSize: 15, lineHeight: 1.6, color: "var(--body)", whiteSpace: "pre-wrap" }}>
               {profile.bio || "아직 자기소개가 없어요."}
-            </div>
-            <h2 style={{ margin: "0 0 var(--space-md)", fontFamily: "var(--font-sans)", fontSize: 18, fontWeight: 600, color: "var(--ink)" }}>최근 활동</h2>
-            <div style={{ display: "flex", flexDirection: "column", gap: 10 }}>
-              {ACTIVITY.map((a, i) => (
-                <div key={i} style={{ display: "flex", alignItems: "center", gap: 10, padding: "var(--space-sm) 0", borderBottom: i < ACTIVITY.length - 1 ? "1px solid var(--hairline-soft)" : "none" }}>
-                  <span style={{ width: 6, height: 6, borderRadius: "var(--radius-full)", background: "var(--ink)" }} />
-                  <span style={{ flex: 1, fontFamily: "var(--font-sans)", fontSize: 14, color: "var(--ink)" }}>{a.text}</span>
-                  <span style={{ fontFamily: "var(--font-sans)", fontSize: 12, color: "var(--muted-soft)" }}>{a.when}</span>
-                </div>
-              ))}
             </div>
           </div>
           <Calendar monthLabel="2026년 2월" startOffset={0} daysInMonth={28} today={9} events={[{ day: 1 }, { day: 8 }, { day: 9 }, { day: 15 }, { day: 22 }]} />

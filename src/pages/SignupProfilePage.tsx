@@ -179,8 +179,14 @@ export function SignupProfilePage(): JSX.Element {
             <Field label="활동 목적"><ChipRow items={PURPOSES} sel={purpose} toggle={togglePurpose} /></Field>
             <Field label="역할"><ChipRow items={ROLES} sel={role} toggle={toggleRole} /></Field>
           </div>
-          <Field label="자기소개">
-            <Textarea rows={3} placeholder="함께 프로젝트 할 팀원을 찾고 있어요. 편하게 말 걸어주세요!" value={bio} onChange={(e: React.ChangeEvent<HTMLTextAreaElement>) => setBio(e.target.value)} />
+          <Field label="자기소개" labelAside={`${bio.length} / 500자`}>
+            <Textarea
+              rows={6}
+              maxLength={500}
+              placeholder={"함께 프로젝트 할 팀원을 찾고 있어요. 편하게 말 걸어주세요!\n\n선호하는 스터디 방식, 관심사, 취미 등을 자유롭게 적어보면 좋아요."}
+              value={bio}
+              onChange={(e: React.ChangeEvent<HTMLTextAreaElement>) => setBio(e.target.value)}
+            />
           </Field>
           {error && <p style={{ margin: 0, color: "var(--danger, red)", fontSize: 13 }}>{error}</p>}
           <div style={{ display: "flex", gap: 10, justifyContent: "flex-end" }}>

@@ -1,5 +1,4 @@
 import React from "react";
-import axios from "axios";
 import { useNavigate, useParams } from "react-router-dom";
 import { AppShell } from "../layouts/AppShell";
 import { Button } from "../components/ds/actions/Button";
@@ -23,12 +22,6 @@ const SCHEDULE: Slot[] = [
   { date: "2/8 토", title: "9주차 — 그래프 탐색", place: "강남 스터디카페" },
   { date: "2/15 토", title: "10주차 — 모의 코딩테스트", place: "온라인" },
 ];
-
-function apiErrorMessage(error: unknown, fallback: string): string {
-  return axios.isAxiosError<{ message?: string }>(error)
-    ? error.response?.data?.message ?? fallback
-    : fallback;
-}
 
 function LeaveModal({ onClose, onConfirm, loading, error }: { onClose: () => void; onConfirm: () => void; loading: boolean; error: string | null }): JSX.Element {
   return (
@@ -80,8 +73,8 @@ export function MyGroupDetailPage(): JSX.Element {
     try {
       await leaveGroup(groupId);
       navigate("/my-groups");
-    } catch (error: unknown) {
-      setLeaveError(apiErrorMessage(error, "탈퇴에 실패했습니다."));
+    } catch (err: any) {
+      setLeaveError(err?.response?.data?.message ?? "탈퇴에 실패했습니다.");
     } finally {
       setLeaveLoading(false);
     }

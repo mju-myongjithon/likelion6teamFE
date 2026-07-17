@@ -1,5 +1,4 @@
 import React from "react";
-import axios from "axios";
 import { useNavigate, useParams } from "react-router-dom";
 import { AppShell } from "../layouts/AppShell";
 import { Button } from "../components/ds/actions/Button";
@@ -54,12 +53,6 @@ function formatRelativeTime(iso: string): string {
 
   const date = new Date(iso);
   return `${date.getFullYear()}.${String(date.getMonth() + 1).padStart(2, "0")}.${String(date.getDate()).padStart(2, "0")}`;
-}
-
-function apiErrorMessage(error: unknown, fallback: string): string {
-  return axios.isAxiosError<{ message?: string }>(error)
-    ? error.response?.data?.message ?? fallback
-    : fallback;
 }
 
 function InfoTile({ icon, label, value }: { icon: string; label: string; value: string }): JSX.Element {
@@ -129,8 +122,6 @@ export function GroupDetailPage(): JSX.Element {
   }, [groupId]);
 
   React.useEffect(() => {
-    // Fetch-on-mount callback updates state only after its request resolves.
-    // eslint-disable-next-line react-hooks/set-state-in-effect
     refreshMembers();
   }, [refreshMembers]);
 
@@ -145,8 +136,8 @@ export function GroupDetailPage(): JSX.Element {
     try {
       await deleteGroup(groupId);
       navigate("/home");
-    } catch (error: unknown) {
-      setDeleteError(apiErrorMessage(error, "삭제에 실패했습니다."));
+    } catch (err: any) {
+      setDeleteError(err?.response?.data?.message ?? "삭제에 실패했습니다.");
       setDeleteLoading(false);
     }
   }
@@ -177,8 +168,6 @@ export function GroupDetailPage(): JSX.Element {
 
   React.useEffect(() => {
     if (isHost) {
-      // The leader does not need an application lookup.
-      // eslint-disable-next-line react-hooks/set-state-in-effect
       setMyApplicationLoading(false);
       return;
     }
@@ -193,8 +182,8 @@ export function GroupDetailPage(): JSX.Element {
       const res = await applyToGroup(groupId);
       setMyApplication(res.data);
       navigate("/apply/complete");
-    } catch (error: unknown) {
-      setApplyError(apiErrorMessage(error, "참여 신청에 실패했습니다."));
+    } catch (err: any) {
+      setApplyError(err?.response?.data?.message ?? "참여 신청에 실패했습니다.");
     } finally {
       setApplyLoading(false);
     }
@@ -206,8 +195,8 @@ export function GroupDetailPage(): JSX.Element {
     try {
       await cancelMyApplication(myApplication.applicationId);
       setMyApplication(null);
-    } catch (error: unknown) {
-      setApplyError(apiErrorMessage(error, "신청 취소에 실패했습니다."));
+    } catch (err: any) {
+      setApplyError(err?.response?.data?.message ?? "신청 취소에 실패했습니다.");
     } finally {
       setCancelLoading(false);
     }
@@ -232,8 +221,6 @@ export function GroupDetailPage(): JSX.Element {
   }, [groupId, isHost]);
 
   React.useEffect(() => {
-    // Leader-only fetch callback updates state as part of the request lifecycle.
-    // eslint-disable-next-line react-hooks/set-state-in-effect
     refreshPendingApplications();
   }, [refreshPendingApplications]);
 
@@ -322,8 +309,8 @@ export function GroupDetailPage(): JSX.Element {
     try {
       const res = await recommendGroupCafes(groupId);
       setCafeResult(res.data);
-    } catch (error: unknown) {
-      setCafeError(apiErrorMessage(error, "카페 추천을 불러오지 못했습니다."));
+    } catch (err: any) {
+      setCafeError(err?.response?.data?.message ?? "카페 추천을 불러오지 못했습니다.");
     } finally {
       setCafeLoading(false);
     }
@@ -358,8 +345,6 @@ export function GroupDetailPage(): JSX.Element {
   }, [groupId]);
 
   React.useEffect(() => {
-    // Page fetch callback updates state as part of the request lifecycle.
-    // eslint-disable-next-line react-hooks/set-state-in-effect
     refreshInquiries(inquiryPage);
   }, [refreshInquiries, inquiryPage]);
 
@@ -378,8 +363,8 @@ export function GroupDetailPage(): JSX.Element {
       setInquiryPage(1);
       await refreshInquiries(1);
       window.setTimeout(() => setJustSubmitted(false), 2000);
-    } catch (error: unknown) {
-      setInquiryError(apiErrorMessage(error, "문의 등록에 실패했습니다."));
+    } catch (err: any) {
+      setInquiryError(err?.response?.data?.message ?? "문의 등록에 실패했습니다.");
     } finally {
       setSubmittingInquiry(false);
     }
