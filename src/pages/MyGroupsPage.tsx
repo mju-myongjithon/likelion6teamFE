@@ -136,8 +136,6 @@ export function MyGroupsPage(): JSX.Element {
   }, []);
 
   React.useEffect(() => {
-    // Fetch-on-mount callback updates state as part of the request lifecycle.
-    // eslint-disable-next-line react-hooks/set-state-in-effect
     refreshApplications();
   }, [refreshApplications]);
 
