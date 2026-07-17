@@ -1,0 +1,138 @@
+#!/usr/bin/env bash
+set -euo pipefail
+
+exec 9>/run/lock/campuslink-update.lock
+flock -n 9 || exit 0
+
+release_base="https://github.com/mju-myongjithon/likelion6teamFE/releases/download/frontend-deploy-latest"
+state_dir="/var/lib/campuslink-deploy"
+releases_dir="/var/www/campuslink/releases"
+current_link="/var/www/campuslink/current"
+version_file="$state_dir/version"
+failed_version_file="$state_dir/failed-version"
+service_host="52-78-186-220.sslip.io"
+tmp_dir="$(mktemp -d)"
+candidate_dir=""
+trap 'rm -rf "$tmp_dir"; [[ -z "$candidate_dir" ]] || rm -rf "$candidate_dir"' EXIT
+
+record_failure() {
+  local failed_version=""
+  local failed_count=0
+  read -r failed_version failed_count < "$failed_version_file" 2>/dev/null || true
+  if [[ "$failed_version" != "$expected" || ! "$failed_count" =~ ^[0-9]+$ ]]; then
+    failed_count=0
+  fi
+  failed_tmp="$failed_version_file.tmp.$$"
+  printf '%s %d\n' "$expected" "$((failed_count + 1))" > "$failed_tmp"
+  chmod 0644 "$failed_tmp"
+  mv -f "$failed_tmp" "$failed_version_file"
+}
+
+mkdir -p "$state_dir" "$releases_dir"
+
+cache_bust="$(date +%s)"
+curl -LfsS --retry 3 --connect-timeout 10 --max-time 120 \
+  "$release_base/campuslink-frontend.tar.gz?cache=$cache_bust" \
+  -o "$tmp_dir/campuslink-frontend.tar.gz"
+
+candidate_dir="$(mktemp -d "$releases_dir/.candidate.XXXXXXXX")"
+tar -xzf "$tmp_dir/campuslink-frontend.tar.gz" \
+  --no-same-owner --no-same-permissions \
+  -C "$candidate_dir"
+(
+  cd "$candidate_dir"
+  sha256sum --quiet -c MANIFEST.sha256
+)
+
+expected="$(tr -d '\r\n' < "$candidate_dir/VERSION")"
+[[ "$expected" =~ ^[0-9a-f]{40}$ ]]
+test -s "$candidate_dir/dist/index.html"
+asset_path="$(awk '
+  match($0, /\/assets\/[^"]+\.js/) {
+    print substr($0, RSTART, RLENGTH)
+    exit
+  }
+' "$candidate_dir/dist/index.html")"
+[[ "$asset_path" =~ ^/assets/[^/]+\.js$ ]]
+test -s "$candidate_dir/dist$asset_path"
+
+current="$(cat "$version_file" 2>/dev/null || true)"
+if [[ "$current" == "$expected" ]]; then
+  exit 0
+fi
+failed_version=""
+failed_count=0
+read -r failed_version failed_count < "$failed_version_file" 2>/dev/null || true
+if [[ "$failed_version" == "$expected" && "$failed_count" =~ ^[0-9]+$ && "$failed_count" -ge 3 ]]; then
+  exit 0
+fi
+
+release_dir="$releases_dir/$expected"
+if [[ -e "$release_dir" ]]; then
+  rm -rf "$candidate_dir"
+else
+  mv "$candidate_dir/dist" "$candidate_dir.release"
+  mv "$candidate_dir.release" "$release_dir"
+fi
+rm -rf "$candidate_dir"
+candidate_dir=""
+
+previous="$(readlink -f "$current_link" 2>/dev/null || true)"
+next_link="$current_link.next.$$"
+ln -s "$release_dir" "$next_link"
+mv -Tf "$next_link" "$current_link"
+
+if ! nginx -t; then
+  if [[ -n "$previous" ]]; then
+    rollback_link="$current_link.rollback.$$"
+    ln -s "$previous" "$rollback_link"
+    mv -Tf "$rollback_link" "$current_link"
+  fi
+  record_failure
+  exit 1
+fi
+systemctl reload nginx
+
+for _ in $(seq 1 20); do
+  page="$(curl -kfsS --max-time 3 \
+      --resolve "$service_host:443:127.0.0.1" \
+      "https://$service_host/" || true)"
+  served_asset_path="$(awk '
+    match($0, /\/assets\/[^"]+\.js/) {
+      print substr($0, RSTART, RLENGTH)
+      exit
+    }
+  ' <<< "$page")"
+  if grep -q '<div id="root"></div>' <<< "$page" \
+      && [[ -n "$served_asset_path" ]] \
+      && curl -kfsS --max-time 5 \
+        --resolve "$service_host:443:127.0.0.1" \
+        "https://$service_host$served_asset_path" >/dev/null; then
+    version_tmp="$version_file.tmp.$$"
+    printf '%s\n' "$expected" > "$version_tmp"
+    chmod 0644 "$version_tmp"
+    mv -f "$version_tmp" "$version_file"
+    rm -f "$failed_version_file"
+    kept=0
+    while IFS= read -r old_release; do
+      if [[ "$old_release" == "$release_dir" || "$old_release" == "$previous" ]]; then
+        continue
+      fi
+      kept=$((kept + 1))
+      if (( kept > 3 )); then
+        rm -rf -- "$old_release"
+      fi
+    done < <(ls -1dt "$releases_dir"/[0-9a-f]* 2>/dev/null || true)
+    exit 0
+  fi
+  sleep 2
+done
+
+if [[ -n "$previous" ]]; then
+  rollback_link="$current_link.rollback.$$"
+  ln -s "$previous" "$rollback_link"
+  mv -Tf "$rollback_link" "$current_link"
+  systemctl reload nginx
+fi
+record_failure
+exit 1
