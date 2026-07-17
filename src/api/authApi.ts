@@ -5,6 +5,11 @@ export interface LoginRequest {
   password: string;
 }
 
+export interface SessionResponse {
+  userId: number;
+  email: string;
+}
+
 export interface SignupProfile {
   name: string;
   schoolName: string;
@@ -27,7 +32,8 @@ export interface SignupRequest {
 export const sendVerificationCode = (email: string) =>
   apiClient.post('/api/auth/email-verifications', { email });
 
-// 인증코드 확인용 별도 엔드포인트는 백엔드에 없다. 코드는 회원가입(signup) 시 함께 검증된다.
+export const verifyCode = (email: string, verificationCode: string) =>
+  apiClient.post('/api/auth/email-verifications/verify', { email, verificationCode });
 
 export const signup = (data: SignupRequest) =>
   apiClient.post('/api/auth/signup', data);
@@ -39,4 +45,4 @@ export const logout = () =>
   apiClient.post('/api/auth/logout');
 
 export const getSession = () =>
-  apiClient.get('/api/auth/session');
+  apiClient.get<SessionResponse>('/api/auth/session');

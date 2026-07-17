@@ -1,5 +1,6 @@
 import { Icon } from "../foundations/Icon";
 import { formatMeetupDate, type ConfirmedMeetup } from "./meetup";
+import { KakaoMap } from "./KakaoMap";
 
 export interface ConfirmedMeetupCardProps {
   meetup: ConfirmedMeetup;
@@ -30,8 +31,8 @@ export function ConfirmedMeetupCard({ meetup, style = {} }: ConfirmedMeetupCardP
         </div>
       </div>
 
-      {/* 지도 */}
-      <img src="/meetup-map.png" alt="약속 장소 지도" style={{ width: "100%", height: 150, objectFit: "cover", display: "block" }} />
+      {/* 지도 — 확정된 카페 좌표에 마커(이름 라벨) 표시 */}
+      <KakaoMap height={150} markers={[{ lat: place.latitude, lng: place.longitude, label: place.placeName }]} />
 
       {/* 확정된 카페 정보 */}
       <div style={{ display: "flex", alignItems: "flex-start", gap: 10, padding: 14 }}>

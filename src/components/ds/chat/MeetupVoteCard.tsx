@@ -4,6 +4,7 @@ import { Icon } from "../foundations/Icon";
 import { Card } from "../cards/Card";
 import { Button } from "../actions/Button";
 import { formatMeetupDate, toMeetupPlace, type Meetup, type MeetupPlace } from "./meetup";
+import { KakaoMap, MapLoading } from "./KakaoMap";
 import { getCafeRecommendations, type CafeRecommendation } from "../../../api/cafe";
 
 export interface MeetupVoteCardProps {
@@ -35,11 +36,14 @@ export function MeetupVoteCard({ meetup, groupId, ended = false, onComplete, onC
     enabled: isMidpoint,
   });
 
+  const sortedCafes = [...cafes].sort((a, b) => a.rank - b.rank);
+  const topCafe = sortedCafes[0];
+
   /** 최다 득표 카페 — 내가 고른 곳이 있으면 그곳, 없으면 1순위 추천 카페. */
   const winningCafe = (): MeetupPlace | null => {
     if (cafes.length === 0) return null;
     const picked = selectedRank != null ? cafes.find((c) => c.rank === selectedRank) : null;
-    const source = picked ?? [...cafes].sort((a, b) => a.rank - b.rank)[0];
+    const source = picked ?? sortedCafes[0];
     return toMeetupPlace(source);
   };
 
@@ -68,7 +72,18 @@ export function MeetupVoteCard({ meetup, groupId, ended = false, onComplete, onC
         </div>
       ) : (
         <>
-          <img src="/meetup-map.png" alt="약속 장소 지도" style={{ width: "100%", height: 140, objectFit: "cover", display: "block" }} />
+          {topCafe ? (
+            <KakaoMap
+              height={140}
+              markers={sortedCafes.map((c) => ({
+                lat: c.location.latitude,
+                lng: c.location.longitude,
+                label: `${c.rank}. ${c.location.placeName}`,
+              }))}
+            />
+          ) : isLoading ? (
+            <MapLoading height={140} />
+          ) : null}
           <div style={{ padding: 12, display: "flex", flexDirection: "column", gap: 8 }}>
             {isLoading && (
               <div style={{ padding: "20px 0", textAlign: "center", fontFamily: "var(--font-sans)", fontSize: 13, color: "var(--muted)" }}>추천 카페를 불러오는 중…</div>
