@@ -102,7 +102,7 @@ export function MeetupModal({ loading, error, onClose, onCreate }: MeetupModalPr
           )}
           {placeMode === "MIDPOINT" && (
             <div style={{ padding: 12, borderRadius: "var(--radius-md)", background: "var(--surface-soft)", fontFamily: "var(--font-sans)", fontSize: 12, lineHeight: 1.6, color: "var(--muted)" }}>
-              모든 그룹원의 프로필에 위치 좌표가 있어야 하며, 백엔드가 중간지점 주변 카페를 최대 3곳 추천합니다.
+              프로필 좌표가 없으면 저장한 시·군·구의 시청·군청·구청 대표 위치를 사용해 중간지점 카페를 추천합니다. 지역은 시·도를 포함해 입력해주세요.
             </div>
           )}
           {error && <div style={{ fontFamily: "var(--font-sans)", fontSize: 13, color: "var(--error)" }}>{error}</div>}
