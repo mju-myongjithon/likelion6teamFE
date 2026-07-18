@@ -43,6 +43,7 @@ export interface MyGroupResponse extends GroupSummary {
 
 export interface MemberResponse {
   userId: number;
+  name?: string | null;
   role: 'LEADER' | 'MEMBER';
   joinedAt: string;
 }
@@ -86,7 +87,7 @@ export const updateGroup = (groupId: string | number, data: GroupRequest) =>
 export const deleteGroup = (groupId: string | number) =>
   apiClient.delete<void>(`/api/groups/${groupId}`);
 
-/** 모임 참여자 조회 — 모임 참여자만 조회 가능 (userId/role/joinedAt만 제공, 이름 없음) */
+/** 모임 참여자 조회 — 모임 참여자만 조회 가능 (이름은 구버전 API 호환을 위해 선택값) */
 export const getGroupMembers = (groupId: string | number) =>
   apiClient.get<MemberResponse[]>(`/api/groups/${groupId}/members`);
 
