@@ -6,7 +6,6 @@ import { Badge, type BadgeTone } from "../components/ds/display/Badge";
 import { Avatar, type AvatarTone } from "../components/ds/display/Avatar";
 import { Icon } from "../components/ds/foundations/Icon";
 import { Button } from "../components/ds/actions/Button";
-import { useSavedItems } from "../context/savedItems";
 import { getMyGroups } from "../api/groupApi";
 import { getMyApplications, cancelMyApplication } from "../api/groupApplicationApi";
 
@@ -65,10 +64,9 @@ function GroupRow({ g, onClick, onCancel, cancelling }: { g: Group; onClick: () 
   );
 }
 
-/** 내 모임 목록 — 참여 중/신청 중/지난 모임/저장한 모임 탭. */
+/** 내 모임 목록 — 참여 중/신청 중/지난 모임 탭. */
 export function MyGroupsPage(): JSX.Element {
   const navigate = useNavigate();
-  const { savedItems } = useSavedItems();
 
   const [activeGroups, setActiveGroups] = React.useState<Group[]>([]);
   const [pastGroups, setPastGroups] = React.useState<Group[]>([]);
@@ -152,23 +150,10 @@ export function MyGroupsPage(): JSX.Element {
     }
   }
 
-  const savedAsGroups: Group[] = savedItems.map((it) => ({
-    id: it.id,
-    title: it.title,
-    category: it.category,
-    categoryTone: it.categoryTone as BadgeTone & AvatarTone,
-    when: it.when,
-    where: it.where,
-    host: it.host,
-    members: it.members,
-    capacity: it.capacity,
-  }));
-
   const data: Record<string, Group[]> = {
     "참여 중": activeGroups,
     "신청 중": pendingApplications,
     "지난 모임": pastGroups,
-    "저장한 모임": savedAsGroups,
   };
   const [tab, setTab] = React.useState<string>("참여 중");
   const list = data[tab] ?? [];
@@ -200,12 +185,7 @@ export function MyGroupsPage(): JSX.Element {
           {!isLoading && errorMsg && (
             <div style={{ padding: 40, textAlign: "center", color: "var(--danger, red)", fontFamily: "var(--font-sans)" }}>{errorMsg}</div>
           )}
-          {!isLoading && !errorMsg && list.length === 0 && tab === "저장한 모임" && (
-            <div style={{ padding: 40, textAlign: "center", color: "var(--muted)", fontFamily: "var(--font-sans)" }}>
-              아직 저장한 모임이 없어요. 모임/행사 상세 페이지에서 저장 버튼을 눌러보세요.
-            </div>
-          )}
-          {!isLoading && !errorMsg && list.length === 0 && tab !== "저장한 모임" && (
+          {!isLoading && !errorMsg && list.length === 0 && (
             <div style={{ padding: 40, textAlign: "center", color: "var(--muted)", fontFamily: "var(--font-sans)" }}>아직 없어요.</div>
           )}
         </div>
