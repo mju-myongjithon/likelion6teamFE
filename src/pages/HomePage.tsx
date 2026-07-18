@@ -5,12 +5,13 @@ import { NavPillGroup } from "../components/ds/navigation/NavPillGroup";
 import { MeetupCard, type MeetupCardProps } from "../components/ds/cards/MeetupCard";
 import { EventCard, type EventCardProps } from "../components/ds/cards/EventCard";
 import { Callout } from "../components/ds/feedback/Callout";
-import { Badge } from "../components/ds/display/Badge";
 import { Button } from "../components/ds/actions/Button";
 import { Icon } from "../components/ds/foundations/Icon";
-import { getMyProfile } from "../api/profileApi";
+import { getMyProfile, type ProfileResponse } from "../api/profileApi";
 import { getListings, type StudyListingItem, type HackathonListingItem } from "../api/listingApi";
 import { getRecommendations, type RecommendationItem } from "../api/recommendationApi";
+import defaultProfileImage from "../assets/default-profile.svg";
+import "./HomePage.css";
 
 const CATEGORIES = ["전체", "스터디", "해커톤(대회)"];
 
@@ -76,12 +77,28 @@ export type EventData = Omit<EventCardProps, "style" | "onClick"> & {
   schedule: Array<{ date: string; title: string; time?: string }>;
 };
 
+function ProfileAvatar({ avatarUrl, name }: { avatarUrl?: string; name: string }): JSX.Element {
+  return (
+    <img
+      className="cl-home-profile-avatar"
+      src={avatarUrl || defaultProfileImage}
+      alt={`${name || "사용자"} 프로필`}
+      onError={(event) => {
+        event.currentTarget.onerror = null;
+        event.currentTarget.src = defaultProfileImage;
+      }}
+    />
+  );
+}
+
 /** CampusLink 홈 — 성향·목적 기반 추천 피드 + 카테고리 필터. */
 export function HomePage(): JSX.Element {
   const navigate = useNavigate();
   const [cat, setCat] = React.useState<string>("전체");
   const [q, setQ] = React.useState<string>("");
-  const [userName, setUserName] = React.useState<string>("");
+  const [profile, setProfile] = React.useState<ProfileResponse | null>(null);
+  const [profileLoading, setProfileLoading] = React.useState(true);
+  const [profileError, setProfileError] = React.useState<string | null>(null);
   const [apiMeetups, setApiMeetups] = React.useState<MeetupData[]>([]);
   const [apiEvents, setApiEvents] = React.useState<EventData[]>([]);
   const [recommendations, setRecommendations] = React.useState<RecommendationItem[] | null>(null);
@@ -89,11 +106,26 @@ export function HomePage(): JSX.Element {
   const [loadingListings, setLoadingListings] = React.useState(true);
   const [listingsError, setListingsError] = React.useState<string | null>(null);
 
-  React.useEffect(() => {
-    getMyProfile()
-      .then((res) => setUserName(res.data.name))
-      .catch((err) => console.error("프로필 조회 실패:", err));
+  const loadProfile = React.useCallback(() => {
+    return getMyProfile()
+      .then((res) => setProfile(res.data))
+      .catch((err) => {
+        console.error("프로필 조회 실패:", err);
+        setProfile(null);
+        setProfileError("프로필 정보를 불러오지 못했어요.");
+      })
+      .finally(() => setProfileLoading(false));
   }, []);
+
+  const retryProfile = () => {
+    setProfileLoading(true);
+    setProfileError(null);
+    void loadProfile();
+  };
+
+  React.useEffect(() => {
+    void loadProfile();
+  }, [loadProfile]);
 
   React.useEffect(() => {
     getListings()
@@ -191,18 +223,140 @@ export function HomePage(): JSX.Element {
   const events = eventsWithRecommendations.filter(
     (event) => cat !== "스터디" && (!q || event.title.includes(q))
   );
+  const recommendationSignals = profile
+    ? Array.from(new Set([...profile.roles, ...profile.interests, ...profile.purposes]))
+    : [];
+  const primaryRole = profile?.roles[0];
+  const primaryInterest = profile?.interests[0];
+  const primaryPurpose = profile?.purposes[0];
+  const profileSummaryParts = [
+    primaryRole && `${primaryRole} 역할`,
+    primaryInterest && `${primaryInterest} 관심사`,
+    primaryPurpose && `${primaryPurpose} 목적`,
+  ].filter(Boolean);
 
   return (
     <AppShell q={q} setQ={setQ}>
-      <div style={{ padding: 28 }}>
-        <div style={{ marginBottom: 8 }}><Badge tone="violet">✦ 오늘의 AI 추천</Badge></div>
-        <h1 className="cl-display-md" style={{ margin: "0 0 var(--space-xs)" }}>
-          안녕하세요, {userName || "..."}님
-        </h1>
-        <p style={{ margin: "0 0 var(--space-lg)", fontFamily: "var(--font-sans)", fontSize: 16, color: "var(--body)" }}>성향과 목적을 분석해 딱 맞는 모임과 행사를 골랐어요.</p>
-        {recommendationReasons.length > 0 && (
-          <Callout style={{ marginBottom: 24 }}>{recommendationReasons.join(" ")}</Callout>
-        )}
+      <div className="cl-home-page">
+        <section className="cl-home-ai-hero" aria-labelledby="ai-briefing-title">
+          <div className="cl-home-ai-briefing">
+            <div className="cl-home-ai-eyebrow">✦ TODAY'S AI BRIEFING</div>
+            <h1 id="ai-briefing-title" className="cl-home-ai-title">
+              {profileLoading ? (
+                "프로필을 확인하고 있어요"
+              ) : profileError ? (
+                "오늘의 추천 브리핑"
+              ) : (
+                <>안녕하세요, <span>{profile?.name}</span>님</>
+              )}
+            </h1>
+            <p className="cl-home-ai-lead">
+              {profileError
+                ? "프로필을 다시 불러오면 맞춤 추천 기준을 확인할 수 있어요."
+                : "프로필에 등록된 정보를 바탕으로 오늘의 추천 방향을 정리했어요."}
+            </p>
+
+            <div className="cl-home-ai-summary">
+              <span className="cl-home-ai-summary-label">AI 요약</span>
+              <div>
+                <p>
+                  {profileLoading
+                    ? "등록된 역할과 관심사를 확인하는 중이에요."
+                    : profileError
+                      ? profileError
+                      : profileSummaryParts.length > 0
+                        ? `${profileSummaryParts.join(", ")}을 중심으로 모임과 개발 행사를 살펴보고 있어요.`
+                        : "프로필에 역할, 관심사, 참여 목적을 추가하면 더 구체적인 추천 기준을 확인할 수 있어요."}
+                </p>
+                {profileError && (
+                  <Button
+                    className="cl-home-profile-retry"
+                    variant="secondary"
+                    size="sm"
+                    onClick={retryProfile}
+                    disabled={profileLoading}
+                  >
+                    프로필 다시 불러오기
+                  </Button>
+                )}
+              </div>
+            </div>
+
+            <div className="cl-home-ai-signal-block">
+              <div className="cl-home-ai-section-heading">
+                <span>추천 신호</span>
+                <small>프로필에 직접 등록된 키워드</small>
+              </div>
+              <div className="cl-home-ai-signals">
+                {profileLoading ? (
+                  <span className="cl-home-ai-empty">키워드를 불러오는 중이에요.</span>
+                ) : profileError ? (
+                  <span className="cl-home-ai-empty">프로필을 불러온 뒤 추천 신호를 표시할게요.</span>
+                ) : recommendationSignals.length > 0 ? (
+                  recommendationSignals.map((signal) => (
+                    <span className="cl-home-ai-signal" key={signal}>#{signal}</span>
+                  ))
+                ) : (
+                  <span className="cl-home-ai-empty">아직 등록된 키워드가 없어요.</span>
+                )}
+              </div>
+            </div>
+
+            {recommendationReasons.length > 0 && (
+              <div className="cl-home-ai-reason">
+                <span>대표 추천 근거</span>
+                <p>{recommendationReasons.join(" ")}</p>
+              </div>
+            )}
+          </div>
+
+          <aside className="cl-home-profile-card" aria-label="내 프로필 요약">
+            <div className="cl-home-profile-glow" aria-hidden="true" />
+            <span className="cl-home-profile-label">MY PROFILE</span>
+            <ProfileAvatar avatarUrl={profile?.avatarUrl} name={profile?.name || ""} />
+            <h2>
+              {profileLoading
+                ? "프로필 불러오는 중"
+                : profileError
+                  ? "프로필 연결이 필요해요"
+                  : profile?.name}
+            </h2>
+            <p className="cl-home-profile-school">
+              {profileLoading
+                ? "잠시만 기다려주세요."
+                : profileError
+                  ? "잠시 후 다시 시도해주세요."
+                  : [profile?.schoolName, profile?.departmentName].filter(Boolean).join(" · ") || "학교 정보를 등록해주세요"}
+            </p>
+            {!profileLoading && !profileError && (
+              <>
+                {profile?.bio && <p className="cl-home-profile-bio">{profile.bio}</p>}
+                <dl className="cl-home-profile-meta">
+                  <div>
+                    <dt>주요 역할</dt>
+                    <dd>{profile?.roles.join(", ") || "미등록"}</dd>
+                  </div>
+                  <div>
+                    <dt>활동 지역</dt>
+                    <dd>{profile?.residenceArea || "미등록"}</dd>
+                  </div>
+                </dl>
+              </>
+            )}
+            <div className="cl-home-profile-action">
+              <Button
+                variant="secondary"
+                size="sm"
+                onClick={profileError ? retryProfile : () => navigate("/mypage")}
+                disabled={profileLoading}
+                style={{ width: "100%" }}
+              >
+                {profileError ? "다시 시도" : "프로필 자세히 보기"}
+              </Button>
+            </div>
+          </aside>
+        </section>
+
         {listingsError && <Callout tone="danger" style={{ marginBottom: 24 }}>{listingsError}</Callout>}
 
         <div style={{ marginBottom: 20 }}>
