@@ -10,6 +10,16 @@
   padding: 28px;
 }
 
+.cl-home-event-list {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+.cl-home-event-card {
+  will-change: transform;
+}
+
 .cl-home-ai-briefing,
 .cl-home-profile-card {
   border: 1px solid rgba(124, 92, 255, 0.16);
