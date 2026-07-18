@@ -486,12 +486,16 @@ export function GroupDetailPage(): JSX.Element {
           {members.length > 0 ? (
             <div style={{ display: "flex", flexWrap: "wrap", gap: 16 }}>
               {members.map((m) => {
-                const label = m.userId === currentUserId ? "나" : `멤버 #${m.userId}`;
+                const name = m.name?.trim();
+                const isCurrentUser = m.userId === currentUserId;
+                const label = name
+                  ? `${name}${isCurrentUser ? " (나)" : ""}`
+                  : isCurrentUser ? "나" : `멤버 #${m.userId}`;
                 const tone: AvatarTone = m.role === "LEADER" ? "violet" : "neutral";
                 const canManage = isHost && m.role !== "LEADER";
                 return (
                   <div key={m.userId} style={{ display: "flex", alignItems: "center", gap: 10 }}>
-                    <Avatar name={label} tone={tone} size={40} />
+                    <Avatar name={name || label} tone={tone} size={40} />
                     <div>
                       <div style={{ fontFamily: "var(--font-sans)", fontSize: 14, fontWeight: 600, color: "var(--ink)" }}>{label}</div>
                       <div style={{ fontFamily: "var(--font-sans)", fontSize: 13, color: "var(--muted)" }}>{m.role === "LEADER" ? "호스트" : "멤버"}</div>
