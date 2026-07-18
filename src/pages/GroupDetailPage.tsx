@@ -9,7 +9,6 @@ import { Badge } from "../components/ds/display/Badge";
 import { Avatar, type AvatarTone } from "../components/ds/display/Avatar";
 import { Callout } from "../components/ds/feedback/Callout";
 import { Icon } from "../components/ds/foundations/Icon";
-import { useSavedItems } from "../context/savedItems";
 import {
   getGroupDetail,
   deleteGroup,
@@ -151,9 +150,6 @@ export function GroupDetailPage(): JSX.Element {
   }
 
   const isHost = group !== null && currentUserId !== null && currentUserId === group.leaderUserId;
-
-  const { isSaved, toggleSave } = useSavedItems();
-  const saved = group ? isSaved(String(group.groupId)) : false;
 
   // ── 참가 신청 (신청자 관점) ──────────────────────────────
   const [myApplication, setMyApplication] = React.useState<ApplicationResponse | null>(null);
@@ -832,25 +828,6 @@ export function GroupDetailPage(): JSX.Element {
                 {applyLoading ? "신청 중..." : group.status === "RECRUITING" ? "참여 신청하기" : "모집 마감됨"}
               </Button>
             )}
-            <Button
-              variant="secondary"
-              size="lg"
-              iconLeft={<Icon name={saved ? "bookmark-check" : "bookmark"} size={16} />}
-              onClick={() => toggleSave({
-                id: String(group.groupId),
-                type: "group",
-                title: group.title,
-                category: "스터디",
-                categoryTone: "violet",
-                when: group.meetingRule,
-                where: group.location,
-                host: "",
-                members: group.currentMemberCount,
-                capacity: group.maxMemberCount,
-              })}
-            >
-              {saved ? "저장됨" : "저장"}
-            </Button>
           </div>
         </div>
       </div>

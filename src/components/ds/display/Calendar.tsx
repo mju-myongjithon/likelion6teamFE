@@ -40,6 +40,7 @@ export function Calendar({
   onSelectDay,
   style = {},
 }: CalendarProps): JSX.Element {
+  const tooltipIdPrefix = React.useId().replace(/:/g, "");
   const cells: Array<number | null> = [
     ...Array(startOffset).fill(null),
     ...Array.from({ length: daysInMonth }, (_, i) => i + 1),
@@ -68,8 +69,10 @@ export function Calendar({
           if (day == null) return <div key={i} role="gridcell" aria-hidden="true" />;
           const isToday = day === today;
           const dayEvents = eventsByDay.get(day) || [];
-          const eventLabels = dayEvents.map((event) => event.label).filter(Boolean).join(", ");
-          const label = eventLabels ? `${day}일: ${eventLabels}` : `${day}일`;
+          const eventLabels = dayEvents
+            .map((event) => event.label)
+            .filter((label): label is string => Boolean(label));
+          const tooltipId = `${tooltipIdPrefix}-calendar-day-${day}`;
           const content = (
             <>
               <span style={{ fontFamily: "var(--font-sans)", fontSize: 13, fontWeight: isToday ? 600 : 500, color: isToday ? "var(--on-primary)" : "var(--ink)" }}>{day}</span>
@@ -78,6 +81,13 @@ export function Calendar({
                   <span key={idx} style={{ width: 4, height: 4, borderRadius: "var(--radius-full)", background: isToday ? "var(--on-primary)" : event.tone === "accent" ? "var(--brand-accent)" : "var(--muted)" }} />
                 ))}
               </span>
+              {eventLabels.length > 0 && (
+                <span id={tooltipId} role="tooltip" className="cl-calendar-event-tooltip">
+                  {eventLabels.map((eventLabel, index) => (
+                    <span key={`${eventLabel}-${index}`}>{eventLabel}</span>
+                  ))}
+                </span>
+              )}
             </>
           );
           const cellStyle: React.CSSProperties = {
@@ -93,11 +103,26 @@ export function Calendar({
           return (
             <div key={i} role="gridcell">
               {onSelectDay ? (
-                <button type="button" onClick={() => onSelectDay(day)} aria-label={label} title={eventLabels || undefined} style={{ ...cellStyle, width: "100%", cursor: "pointer" }}>
+                <button
+                  type="button"
+                  className="cl-calendar-day"
+                  data-edge={i % 7 <= 1 ? "start" : i % 7 >= 5 ? "end" : undefined}
+                  onClick={() => onSelectDay(day)}
+                  aria-label={`${day}일`}
+                  aria-describedby={eventLabels.length > 0 ? tooltipId : undefined}
+                  style={{ ...cellStyle, width: "100%", cursor: "pointer" }}
+                >
                   {content}
                 </button>
               ) : (
-                <div aria-label={label} title={eventLabels || undefined} style={cellStyle}>
+                <div
+                  className="cl-calendar-day"
+                  data-edge={i % 7 <= 1 ? "start" : i % 7 >= 5 ? "end" : undefined}
+                  aria-label={`${day}일`}
+                  aria-describedby={eventLabels.length > 0 ? tooltipId : undefined}
+                  tabIndex={eventLabels.length > 0 ? 0 : undefined}
+                  style={cellStyle}
+                >
                   {content}
                 </div>
               )}
