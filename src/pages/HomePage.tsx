@@ -104,6 +104,8 @@ export function HomePage(): JSX.Element {
   const [recommendationReasons, setRecommendationReasons] = React.useState<string[]>([]);
   const [loadingListings, setLoadingListings] = React.useState(true);
   const [listingsError, setListingsError] = React.useState<string | null>(null);
+  const eventCardRefs = React.useRef(new Map<string, HTMLDivElement>());
+  const eventCardPositions = React.useRef(new Map<string, DOMRect>());
 
   const loadProfile = React.useCallback(() => {
     return getMyProfile()
@@ -218,7 +220,43 @@ export function HomePage(): JSX.Element {
 
   let meetups = meetupsWithRecommendations;
   if (cat !== "전체") meetups = meetups.filter((m) => m.category === cat);
-  const events = cat === "스터디" ? [] : eventsWithRecommendations;
+  const sortedEvents = [...eventsWithRecommendations].sort(
+    (a, b) => (b.matchScore ?? -1) - (a.matchScore ?? -1)
+  );
+  const events = cat === "스터디" ? [] : sortedEvents;
+  const eventOrderKey = events.map((event) => event.id).join(",");
+
+  React.useLayoutEffect(() => {
+    const nextPositions = new Map<string, DOMRect>();
+    eventCardRefs.current.forEach((element, id) => {
+      nextPositions.set(id, element.getBoundingClientRect());
+    });
+
+    if (!window.matchMedia("(prefers-reduced-motion: reduce)").matches) {
+      nextPositions.forEach((nextPosition, id) => {
+        const previousPosition = eventCardPositions.current.get(id);
+        const element = eventCardRefs.current.get(id);
+        if (!previousPosition || !element) return;
+
+        const offsetY = previousPosition.top - nextPosition.top;
+        if (Math.abs(offsetY) < 1) return;
+
+        element.animate(
+          [
+            { transform: `translateY(${offsetY}px)` },
+            { transform: "translateY(0)" },
+          ],
+          {
+            duration: 450,
+            easing: "cubic-bezier(0.22, 1, 0.36, 1)",
+          }
+        );
+      });
+    }
+
+    eventCardPositions.current = nextPositions;
+  }, [eventOrderKey]);
+
   const recommendationSignals = profile
     ? Array.from(new Set([...profile.roles, ...profile.interests, ...profile.purposes]))
     : [];
@@ -378,8 +416,19 @@ export function HomePage(): JSX.Element {
             새 행사 등록
           </Button>
         </div>
-        <div style={{ display: "flex", flexDirection: "column", gap: 12 }}>
-          {events.map((event) => <EventCard key={event.id} {...event} onClick={() => navigate(`/events/${event.id}`)} />)}
+        <div className="cl-home-event-list">
+          {events.map((event) => (
+            <div
+              className="cl-home-event-card"
+              key={event.id}
+              ref={(element) => {
+                if (element) eventCardRefs.current.set(event.id, element);
+                else eventCardRefs.current.delete(event.id);
+              }}
+            >
+              <EventCard {...event} onClick={() => navigate(`/events/${event.id}`)} />
+            </div>
+          ))}
           {!loadingListings && !listingsError && events.length === 0 && <div style={{ color: "var(--muted)", fontFamily: "var(--font-sans)", padding: 20 }}>등록된 행사가 없어요.</div>}
         </div>
       </div>
