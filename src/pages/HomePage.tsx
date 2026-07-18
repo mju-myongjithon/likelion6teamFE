@@ -121,10 +121,6 @@ export const EVENTS: EventData[] = [
   },
 ];
 
-function SectionTitle({ children }: { children?: React.ReactNode }): JSX.Element {
-  return <h2 style={{ margin: "0 0 var(--space-md)", fontFamily: "var(--font-sans)", fontSize: 18, fontWeight: 600, color: "var(--ink)" }}>{children}</h2>;
-}
-
 /** CampusLink 홈 — 성향·목적 기반 추천 피드 + 카테고리 필터. */
 export function HomePage(): JSX.Element {
   const navigate = useNavigate();
@@ -262,7 +258,12 @@ export function HomePage(): JSX.Element {
           {!loadingListings && meetups.length === 0 && <div style={{ color: "var(--muted)", fontFamily: "var(--font-sans)", padding: 20 }}>해당 카테고리의 모임이 없어요.</div>}
         </div>
 
-        <SectionTitle>추천 행사</SectionTitle>
+        <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: "var(--space-md)" }}>
+          <h2 style={{ margin: 0, fontFamily: "var(--font-sans)", fontSize: 18, fontWeight: 600, color: "var(--ink)" }}>추천 행사</h2>
+          <Button variant="secondary" size="sm" iconLeft={<Icon name="plus" size={14} />} onClick={() => navigate("/events/new")}>
+            새 행사 등록
+          </Button>
+        </div>
         <div style={{ display: "flex", flexDirection: "column", gap: 12 }}>
           {eventsWithRecommendations.map((event) => <EventCard key={event.id} {...event} onClick={() => navigate(`/events/${event.id}`)} />)}
           {!loadingListings && eventsWithRecommendations.length === 0 && <div style={{ color: "var(--muted)", fontFamily: "var(--font-sans)", padding: 20 }}>등록된 행사가 없어요.</div>}

@@ -14,6 +14,7 @@ import { updateMyProfile, type ProfileResponse } from "../api/profileApi";
 const INTERESTS = ["AI/머신러닝", "웹개발", "앱개발", "게임개발", "알고리즘•코테", "공모전", "취업준비", "데이터 분석", "보안/해킹", "UI•UX", "창업", "클라우드/인프라"];
 const PURPOSES = ["프로젝트", "스터디", "친목", "행사·네트워킹"];
 const ROLES = ["프론트엔드", "기획", "디자인", "백엔드", "데이터"];
+const INTERESTS_MAX = 3;
 
 function apiErrorMessage(error: unknown, fallback: string): string {
   return axios.isAxiosError<{ message?: string }>(error)
@@ -21,28 +22,65 @@ function apiErrorMessage(error: unknown, fallback: string): string {
     : fallback;
 }
 
-function useToggle(initial: string[], max?: number): [string[], (t: string) => void] {
+function useToggle(initial: string[], max?: number): [string[], (t: string) => void, (t: string) => void] {
   const [sel, setSel] = React.useState<string[]>(initial);
   const toggle = (t: string) => setSel((s) => {
     if (s.includes(t)) return s.filter((x) => x !== t);
     if (max && s.length >= max) return s;
     return [...s, t];
   });
-  return [sel, toggle];
+  const add = (t: string) => setSel((s) => (s.includes(t) || (max && s.length >= max) ? s : [...s, t]));
+  return [sel, toggle, add];
 }
 
 interface ChipRowProps {
   items: string[];
   sel: string[];
   toggle: (t: string) => void;
-  add?: boolean;
+  onAdd?: (t: string) => void;
 }
 
-function ChipRow({ items, sel, toggle, add }: ChipRowProps): JSX.Element {
+function ChipRow({ items, sel, toggle, onAdd }: ChipRowProps): JSX.Element {
+  const [adding, setAdding] = React.useState(false);
+  const [value, setValue] = React.useState("");
+
+  const commit = () => {
+    const v = value.trim();
+    if (v && onAdd) onAdd(v);
+    setValue("");
+    setAdding(false);
+  };
+
   return (
-    <div style={{ display: "flex", flexWrap: "wrap", gap: 8 }}>
+    <div style={{ display: "flex", flexWrap: "wrap", gap: 8, alignItems: "center" }}>
       {items.map((t) => <Chip key={t} active={sel.includes(t)} onClick={() => toggle(t)}>{t}</Chip>)}
-      {add && <Chip variant="add">+ 직접입력</Chip>}
+      {onAdd && (
+        adding ? (
+          <input
+            autoFocus
+            value={value}
+            maxLength={50}
+            placeholder="직접 입력 후 Enter"
+            onChange={(e) => setValue(e.target.value)}
+            onKeyDown={(e) => {
+              if (e.key === "Enter") { e.preventDefault(); commit(); }
+              if (e.key === "Escape") { setValue(""); setAdding(false); }
+            }}
+            onBlur={commit}
+            style={{
+              width: 140,
+              padding: "6px 12px",
+              borderRadius: "var(--radius-pill)",
+              border: "1px solid var(--ink)",
+              fontFamily: "var(--font-sans)",
+              fontSize: 13,
+              outline: "none",
+            }}
+          />
+        ) : (
+          <Chip variant="add" onClick={() => setAdding(true)}>+ 직접입력</Chip>
+        )
+      )}
     </div>
   );
 }
@@ -70,9 +108,12 @@ export function SignupProfilePage(): JSX.Element {
   const [residenceLatitude, setResidenceLatitude] = React.useState<number | undefined>(existing?.residenceLatitude ?? undefined);
   const [residenceLongitude, setResidenceLongitude] = React.useState<number | undefined>(existing?.residenceLongitude ?? undefined);
   const [bio, setBio] = React.useState(existing?.bio ?? "");
-  const [interests, toggleInterest] = useToggle(existing?.interests ?? ["AI/머신러닝", "웹개발", "창업"], 3);
-  const [purpose, togglePurpose] = useToggle(existing?.purposes ?? ["프로젝트"]);
-  const [role, toggleRole] = useToggle(existing?.roles ?? ["프론트엔드"]);
+  const [interests, toggleInterest, addInterest] = useToggle(existing?.interests ?? ["AI/머신러닝", "웹개발", "창업"], INTERESTS_MAX);
+  const [purpose, togglePurpose, addPurpose] = useToggle(existing?.purposes ?? ["프로젝트"]);
+  const [role, toggleRole, addRole] = useToggle(existing?.roles ?? ["프론트엔드"]);
+  const interestItems = React.useMemo(() => Array.from(new Set([...INTERESTS, ...interests])), [interests]);
+  const purposeItems = React.useMemo(() => Array.from(new Set([...PURPOSES, ...purpose])), [purpose]);
+  const roleItems = React.useMemo(() => Array.from(new Set([...ROLES, ...role])), [role]);
   const [error, setError] = React.useState<string | null>(null);
   const [loading, setLoading] = React.useState(false);
   const [locating, setLocating] = React.useState(false);
@@ -216,12 +257,12 @@ export function SignupProfilePage(): JSX.Element {
               </div>
             )}
           </Field>
-          <Field label="관심사" labelAside={`${interests.length} / 3 선택`}>
-            <ChipRow items={INTERESTS} sel={interests} toggle={toggleInterest} />
+          <Field label="관심사" labelAside={`${interests.length} / ${INTERESTS_MAX} 선택`} hint="목록에 없으면 직접 입력할 수 있어요">
+            <ChipRow items={interestItems} sel={interests} toggle={toggleInterest} onAdd={addInterest} />
           </Field>
           <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 16 }}>
-            <Field label="활동 목적"><ChipRow items={PURPOSES} sel={purpose} toggle={togglePurpose} /></Field>
-            <Field label="역할"><ChipRow items={ROLES} sel={role} toggle={toggleRole} /></Field>
+            <Field label="활동 목적"><ChipRow items={purposeItems} sel={purpose} toggle={togglePurpose} onAdd={addPurpose} /></Field>
+            <Field label="역할"><ChipRow items={roleItems} sel={role} toggle={toggleRole} onAdd={addRole} /></Field>
           </div>
           <Field label="자기소개" labelAside={`${bio.length} / 500자`}>
             <Textarea

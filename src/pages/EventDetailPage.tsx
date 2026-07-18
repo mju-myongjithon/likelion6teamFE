@@ -8,7 +8,8 @@ import { Badge } from "../components/ds/display/Badge";
 import { Callout } from "../components/ds/feedback/Callout";
 import { Icon } from "../components/ds/foundations/Icon";
 import { useSavedItems } from "../context/savedItems";
-import { getEventDetail, type EventDetail } from "../api/eventApi";
+import { getEventDetail, deleteEvent, type EventDetail } from "../api/eventApi";
+import { getMyProfile } from "../api/profileApi";
 
 interface InquiryItem {
   id: string;
@@ -82,9 +83,33 @@ export function EventDetailPage(): JSX.Element {
   const INQUIRIES_PER_PAGE = 5;
   const [, setTick] = React.useState<number>(0);
 
-  const isHost = true;
+  const [myUserId, setMyUserId] = React.useState<number | null>(null);
+  const [deleting, setDeleting] = React.useState(false);
+
+  React.useEffect(() => {
+    getMyProfile()
+      .then((res) => setMyUserId(res.data.userId))
+      .catch((err) => console.error("프로필 조회 실패:", err));
+  }, []);
+
+  const isHost = myUserId !== null && event?.creatorUserId === myUserId;
   const [replyDraftId, setReplyDraftId] = React.useState<string | null>(null);
   const [replyDraftText, setReplyDraftText] = React.useState<string>("");
+
+  async function handleDeleteEvent(): Promise<void> {
+    if (!event) return;
+    if (!window.confirm("정말 이 행사를 삭제할까요? 되돌릴 수 없어요.")) return;
+    setDeleting(true);
+    try {
+      await deleteEvent(event.eventId);
+      navigate("/home");
+    } catch (err) {
+      console.error("행사 삭제 실패:", err);
+      window.alert("행사 삭제에 실패했습니다.");
+    } finally {
+      setDeleting(false);
+    }
+  }
 
   React.useEffect(() => {
     const interval = window.setInterval(() => setTick((t) => t + 1), 60000);
@@ -414,7 +439,18 @@ export function EventDetailPage(): JSX.Element {
           )}
         </div>
         <div style={{ display: "flex", gap: "var(--space-sm)", position: "sticky", bottom: 0, background: "var(--canvas)", paddingTop: "var(--space-xs)" }}>
-          <Button variant="primary" size="lg" onClick={() => navigate("/apply/complete")}>참가 신청하기</Button>
+          {isHost ? (
+            <>
+              <Button variant="secondary" size="lg" iconLeft={<Icon name="pencil" size={16} />} onClick={() => navigate(`/events/${event.eventId}/edit`)}>
+                행사 수정
+              </Button>
+              <Button variant="secondary" size="lg" iconLeft={<Icon name="trash-2" size={16} />} onClick={handleDeleteEvent} disabled={deleting}>
+                {deleting ? "삭제 중..." : "행사 삭제"}
+              </Button>
+            </>
+          ) : (
+            <Button variant="primary" size="lg" onClick={() => navigate("/apply/complete")}>참가 신청하기</Button>
+          )}
           <Button
             variant="secondary"
             size="lg"
