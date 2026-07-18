@@ -12,6 +12,7 @@ export interface EventDetail {
   endsAt: string;
   location: string;
   relatedUrl: string;
+  posterUrl: string | null;
   tags: string[];
   createdAt: string;
   updatedAt: string;

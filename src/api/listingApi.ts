@@ -18,6 +18,7 @@ export interface HackathonListingItem {
   applicationDeadlineAt: string;
   startsAt: string;
   location: string;
+  posterUrl: string | null;
   createdAt: string;
 }
 
