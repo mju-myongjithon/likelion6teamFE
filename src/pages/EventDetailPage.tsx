@@ -17,6 +17,7 @@ import {
   type EventDetail,
 } from "../api/eventApi";
 import { getMyProfile } from "../api/profileApi";
+import { getRecommendations, type RecommendationItem } from "../api/recommendationApi";
 
 interface InquiryItem {
   id: string;
@@ -63,38 +64,118 @@ function formatDateTime(iso: string): { month: string; day: string; full: string
   };
 }
 
+function getSafeExternalUrl(value: string): string | null {
+  try {
+    const url = new URL(value);
+    return url.protocol === "https:" || url.protocol === "http:" ? url.href : null;
+  } catch {
+    return null;
+  }
+}
+
 /** 추천 행사 상세 화면. */
 export function EventDetailPage(): JSX.Element {
   const navigate = useNavigate();
   const { eventId } = useParams<{ eventId: string }>();
-  const [event, setEvent] = React.useState<EventDetail | null>(null);
-  const [loading, setLoading] = React.useState(true);
-  const [loadError, setLoadError] = React.useState<string | null>(null);
-  const [applied, setApplied] = React.useState(false);
-  const [applicationStatusLoading, setApplicationStatusLoading] = React.useState(true);
-  const [applying, setApplying] = React.useState(false);
-  const [applicationMessage, setApplicationMessage] = React.useState<string | null>(null);
+  const [eventResult, setEventResult] = React.useState<{
+    eventId: string;
+    item: EventDetail | null;
+    error: string | null;
+  } | null>(null);
+  const [applicationStatusResult, setApplicationStatusResult] = React.useState<{
+    eventId: string;
+    applied: boolean;
+  } | null>(null);
+  const [applyingRequest, setApplyingRequest] = React.useState<{
+    eventId: string;
+    mutationId: number;
+  } | null>(null);
+  const [applicationMessageResult, setApplicationMessageResult] = React.useState<{
+    eventId: string;
+    message: string;
+  } | null>(null);
+  const applicationMutationIdRef = React.useRef(0);
+  const [recommendationResult, setRecommendationResult] = React.useState<{
+    eventId: string;
+    item: RecommendationItem | null;
+  } | null>(null);
 
   React.useEffect(() => {
     if (!eventId) return;
+    let active = true;
+
     getEventDetail(eventId)
-      .then((res) => setEvent(res.data))
-      .catch((err) => {
-        console.error("행사 상세 조회 실패:", err);
-        setLoadError("행사 정보를 불러오지 못했습니다.");
+      .then((res) => {
+        if (active) setEventResult({ eventId, item: res.data, error: null });
       })
-      .finally(() => setLoading(false));
+      .catch((err) => {
+        if (!active) return;
+        console.error("행사 상세 조회 실패:", err);
+        setEventResult({ eventId, item: null, error: "행사 정보를 불러오지 못했습니다." });
+      });
+
+    return () => {
+      active = false;
+    };
   }, [eventId]);
 
   React.useEffect(() => {
     if (!eventId) return;
+    let active = true;
+    applicationMutationIdRef.current += 1;
+
     getEventApplicationStatus(eventId)
-      .then((res) => setApplied(res.data.applied))
+      .then((res) => {
+        if (active) setApplicationStatusResult({ eventId, applied: res.data.applied });
+      })
       .catch(() => {
         // 비로그인 사용자는 상세 정보만 볼 수 있다.
-      })
-      .finally(() => setApplicationStatusLoading(false));
+        if (active) setApplicationStatusResult({ eventId, applied: false });
+      });
+
+    return () => {
+      active = false;
+    };
   }, [eventId]);
+
+  React.useEffect(() => {
+    if (!eventId) return;
+    const targetId = Number(eventId);
+    if (!Number.isSafeInteger(targetId) || targetId <= 0) return;
+
+    const controller = new AbortController();
+    let active = true;
+    getRecommendations(20, controller.signal)
+      .then((response) => {
+        if (!active) return;
+        const item = response.data.find(
+          (candidate) => candidate.category === "HACKATHON" && candidate.targetId === targetId
+        ) ?? null;
+        setRecommendationResult({ eventId, item });
+      })
+      .catch(() => {
+        if (active && !controller.signal.aborted) {
+          setRecommendationResult({ eventId, item: null });
+        }
+      });
+
+    return () => {
+      active = false;
+      controller.abort();
+    };
+  }, [eventId]);
+
+  const event = eventResult && eventResult.eventId === eventId ? eventResult.item : null;
+  const loadError = eventResult && eventResult.eventId === eventId ? eventResult.error : null;
+  const loading = eventResult?.eventId !== eventId;
+  const applied = applicationStatusResult && applicationStatusResult.eventId === eventId
+    ? applicationStatusResult.applied
+    : false;
+  const applicationStatusLoading = applicationStatusResult?.eventId !== eventId;
+  const applying = applyingRequest?.eventId === eventId;
+  const applicationMessage = applicationMessageResult && applicationMessageResult.eventId === eventId
+    ? applicationMessageResult.message
+    : null;
 
   const [inquiry, setInquiry] = React.useState<string>("");
   const [inquiries, setInquiries] = React.useState<InquiryItem[]>([]);
@@ -159,22 +240,33 @@ export function EventDetailPage(): JSX.Element {
 
   function handleApply(): void {
     if (!eventId || applied || applying || applicationStatusLoading) return;
-    setApplying(true);
-    setApplicationMessage(null);
+    const mutationId = ++applicationMutationIdRef.current;
+    setApplyingRequest({ eventId, mutationId });
+    setApplicationMessageResult(null);
     applyToEvent(eventId)
       .then(() => {
-        setApplied(true);
-        setApplicationMessage("마이페이지 달력에 신청 일정이 표시됐어요.");
+        if (applicationMutationIdRef.current !== mutationId) return;
+        setApplicationStatusResult({ eventId, applied: true });
+        setApplicationMessageResult({
+          eventId,
+          message: "마이페이지 달력에 신청 일정이 표시됐어요.",
+        });
       })
       .catch((err) => {
+        if (applicationMutationIdRef.current !== mutationId) return;
         console.error("행사 신청 일정 기록 실패:", err);
-        setApplicationMessage(
-          axios.isAxiosError<{ message?: string }>(err)
+        setApplicationMessageResult({
+          eventId,
+          message: axios.isAxiosError<{ message?: string }>(err)
             ? err.response?.data?.message ?? "신청 일정을 기록하지 못했습니다."
-            : "신청 일정을 기록하지 못했습니다."
-        );
+            : "신청 일정을 기록하지 못했습니다.",
+        });
       })
-      .finally(() => setApplying(false));
+      .finally(() => {
+        setApplyingRequest((current) =>
+          current?.mutationId === mutationId ? null : current
+        );
+      });
   }
 
   function handleInquiryKeyDown(e: React.KeyboardEvent<HTMLInputElement>): void {
@@ -238,6 +330,11 @@ export function EventDetailPage(): JSX.Element {
   }
 
   const start = formatDateTime(event.startsAt);
+  const safeRelatedUrl = getSafeExternalUrl(event.relatedUrl);
+  const recommendation = recommendationResult !== null && recommendationResult.eventId === eventId
+    ? recommendationResult.item
+    : null;
+  const recommendationReasons = recommendation?.reasons.filter((reason) => reason.trim().length > 0) ?? [];
   return (
     <AppShell>
       <div style={{ padding: "var(--space-xl)", maxWidth: 780 }}>
@@ -267,14 +364,30 @@ export function EventDetailPage(): JSX.Element {
           <p style={{ margin: "0 0 var(--space-md)", fontFamily: "var(--font-sans)", fontSize: 15, lineHeight: 1.6, color: "var(--body)" }}>
             {event.description}
           </p>
+          {recommendation && (
+            <section aria-labelledby="event-recommendation-heading" style={{ border: "1px solid var(--hairline)", borderRadius: "var(--radius-md)", padding: "var(--space-md)", marginBottom: "var(--space-md)", background: "var(--canvas)" }}>
+              <h2 id="event-recommendation-heading" style={{ margin: 0, fontFamily: "var(--font-sans)", fontSize: 15, fontWeight: 600, color: "var(--ink)", marginBottom: recommendationReasons.length > 0 ? "var(--space-xs)" : 0 }}>
+                회원님과 {recommendation.score}% 잘 맞는 행사예요
+              </h2>
+              {recommendationReasons.length > 0 && (
+                <ul style={{ margin: 0, paddingLeft: 20, display: "flex", flexDirection: "column", gap: 4 }}>
+                  {recommendationReasons.map((reason, index) => (
+                    <li key={`${reason}-${index}`} style={{ fontFamily: "var(--font-sans)", fontSize: 14, lineHeight: 1.5, color: "var(--body)" }}>
+                      {reason}
+                    </li>
+                  ))}
+                </ul>
+              )}
+            </section>
+          )}
           {event.tags.length > 0 && (
             <div style={{ display: "flex", flexWrap: "wrap", gap: "var(--space-xs)" }}>
               {event.tags.map((t) => <Badge key={t}>{t}</Badge>)}
             </div>
           )}
-          {event.relatedUrl && (
+          {safeRelatedUrl && (
             <div style={{ marginTop: "var(--space-md)" }}>
-              <a href={event.relatedUrl} target="_blank" rel="noreferrer" style={{ fontFamily: "var(--font-sans)", fontSize: 14, color: "var(--brand-accent)" }}>
+              <a href={safeRelatedUrl} target="_blank" rel="noopener noreferrer" style={{ fontFamily: "var(--font-sans)", fontSize: 14, color: "var(--brand-accent)" }}>
                 관련 링크 바로가기 →
               </a>
             </div>

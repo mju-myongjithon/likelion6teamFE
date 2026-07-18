@@ -15,7 +15,8 @@ export interface RecommendationItem {
   reasons: string[];
 }
 
-export const getRecommendations = (limit = 20) =>
+export const getRecommendations = (limit = 20, signal?: AbortSignal) =>
   apiClient.get<RecommendationItem[]>('/api/recommendations', {
     params: { filter: 'ALL', limit },
+    signal,
   });
