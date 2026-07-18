@@ -28,6 +28,223 @@ a {
   color: inherit;
 }
 
+.cl-mypage {
+  width: 100%;
+  max-width: 1040px;
+  padding: 32px 28px 48px;
+}
+
+.cl-mypage-state {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 32px 28px;
+  color: var(--muted);
+  font-family: var(--font-sans);
+}
+
+.cl-mypage-profile {
+  display: flex;
+  align-items: center;
+  gap: 20px;
+  padding-bottom: 28px;
+}
+
+.cl-mypage-profile-copy {
+  flex: 1;
+  min-width: 0;
+}
+
+.cl-mypage-profile-copy h1,
+.cl-mypage-section-heading h2,
+.cl-mypage-schedule-heading h2 {
+  margin: 0;
+}
+
+.cl-mypage-profile-copy p {
+  margin: 6px 0 12px;
+  color: var(--muted);
+  font-size: 14px;
+}
+
+.cl-mypage-interest-list {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 6px;
+}
+
+.cl-mypage-stats {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 16px;
+  margin-bottom: 28px;
+}
+
+.cl-mypage-content-grid {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) minmax(320px, 0.9fr);
+  gap: 20px;
+  align-items: start;
+}
+
+.cl-mypage-section-heading,
+.cl-mypage-schedule-heading {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 16px;
+}
+
+.cl-mypage-section-heading h2,
+.cl-mypage-schedule-heading h2 {
+  color: var(--ink);
+  font-family: var(--font-sans);
+  font-size: 18px;
+  font-weight: 600;
+}
+
+.cl-mypage-section-heading p,
+.cl-mypage-schedule-heading p {
+  margin: 6px 0 0;
+  color: var(--muted);
+  font-size: 13px;
+  line-height: 1.5;
+}
+
+.cl-mypage-section-heading > strong {
+  color: var(--ink);
+  font-family: var(--font-display);
+  font-size: 24px;
+}
+
+.cl-mypage-schedule-heading {
+  margin-bottom: 12px;
+}
+
+.cl-mypage-schedule-heading > span {
+  flex-shrink: 0;
+  color: var(--muted);
+  font-size: 13px;
+}
+
+.cl-mypage-completion-grid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 8px;
+}
+
+.cl-mypage-completion-item {
+  display: grid;
+  grid-template-columns: auto 1fr auto;
+  align-items: center;
+  gap: 8px;
+  padding: 10px 12px;
+  border-radius: var(--radius-md);
+  background: var(--surface-soft);
+  color: var(--muted);
+  font-size: 13px;
+}
+
+.cl-mypage-completion-item.is-complete {
+  color: var(--body);
+}
+
+.cl-mypage-completion-item > span:last-child {
+  color: var(--muted-soft);
+  font-size: 12px;
+}
+
+.cl-mypage-month-preview {
+  margin-top: 28px;
+  padding: 24px;
+  border: 1px solid var(--hairline);
+  border-radius: var(--radius-lg);
+}
+
+.cl-mypage-month-preview > .cl-mypage-section-heading {
+  margin-bottom: 16px;
+}
+
+.cl-mypage-schedule-list {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr);
+  gap: 8px;
+}
+
+.cl-mypage-schedule-item {
+  display: flex;
+  align-items: center;
+  gap: 14px;
+  width: 100%;
+  min-width: 0;
+  padding: 12px 14px;
+  border: 1px solid var(--hairline);
+  border-radius: var(--radius-md);
+  background: var(--canvas);
+  color: var(--ink);
+  text-align: left;
+}
+
+.cl-mypage-schedule-item:is(button) {
+  cursor: pointer;
+}
+
+.cl-mypage-schedule-date {
+  min-width: 46px;
+  color: var(--ink);
+  font-family: var(--font-display);
+  font-size: 17px;
+  font-weight: 600;
+}
+
+.cl-mypage-schedule-copy {
+  display: flex;
+  flex: 1;
+  flex-direction: column;
+  min-width: 0;
+  gap: 3px;
+}
+
+.cl-mypage-schedule-copy strong {
+  overflow: hidden;
+  font-size: 14px;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.cl-mypage-schedule-copy > span {
+  color: var(--muted);
+  font-size: 12px;
+}
+
+.cl-mypage-empty {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 16px;
+  padding: 14px 0;
+  color: var(--muted);
+  font-size: 13px;
+}
+
+.cl-mypage-error-copy {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+
+.cl-mypage-error-copy button {
+  padding: 0;
+  border: 0;
+  background: transparent;
+  color: inherit;
+  font: inherit;
+  font-weight: 600;
+  text-decoration: underline;
+  cursor: pointer;
+}
+
 @media (max-width: 760px) {
   .cl-event-info-grid,
   .cl-mypage-stats,
@@ -48,5 +265,32 @@ a {
 
   .cl-mypage {
     padding: 20px !important;
+  }
+
+  .cl-mypage-profile > button {
+    width: 100% !important;
+  }
+
+  .cl-mypage-content-grid,
+  .cl-mypage-completion-grid {
+    grid-template-columns: 1fr;
+  }
+
+  .cl-mypage-month-preview {
+    padding: 18px;
+  }
+}
+
+@media (max-width: 480px) {
+  .cl-mypage-stats {
+    grid-template-columns: 1fr !important;
+  }
+
+  .cl-mypage-section-heading,
+  .cl-mypage-schedule-heading,
+  .cl-mypage-empty,
+  .cl-mypage-state {
+    align-items: flex-start;
+    flex-direction: column;
   }
 }

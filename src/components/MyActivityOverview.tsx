@@ -1,6 +1,7 @@
 import { useNavigate } from "react-router-dom";
 import type { AppliedEvent, MyPageGroup } from "../api/myPageApi";
 import { Badge } from "./ds/display/Badge";
+import { Button } from "./ds/actions/Button";
 import { Card } from "./ds/cards/Card";
 
 interface MyActivityOverviewProps {
@@ -10,6 +11,8 @@ interface MyActivityOverviewProps {
 
 export function MyActivityOverview({ appliedEvents, myGroups }: MyActivityOverviewProps): JSX.Element {
   const navigate = useNavigate();
+  const visibleEvents = appliedEvents.slice(0, 3);
+  const visibleGroups = myGroups.slice(0, 3);
 
   return (
     <section style={{ marginTop: 28 }}>
@@ -23,7 +26,7 @@ export function MyActivityOverview({ appliedEvents, myGroups }: MyActivityOvervi
             <Badge tone="orange">{appliedEvents.length}개</Badge>
           </div>
           <div style={{ display: "flex", flexDirection: "column", gap: 10 }}>
-            {appliedEvents.map((event) => (
+            {visibleEvents.map((event) => (
               <button
                 key={event.eventId}
                 type="button"
@@ -36,7 +39,12 @@ export function MyActivityOverview({ appliedEvents, myGroups }: MyActivityOvervi
                 </span>
               </button>
             ))}
-            {appliedEvents.length === 0 && <span style={emptyStyle}>아직 신청 표시한 행사가 없어요.</span>}
+            {appliedEvents.length === 0 && (
+              <div style={emptyActionStyle}>
+                <span style={emptyStyle}>예정된 신청 행사가 없어요.</span>
+                <Button variant="secondary" size="sm" onClick={() => navigate("/home")}>행사 탐색하기</Button>
+              </div>
+            )}
           </div>
         </Card>
 
@@ -46,7 +54,7 @@ export function MyActivityOverview({ appliedEvents, myGroups }: MyActivityOvervi
             <Badge tone="violet">{myGroups.length}개</Badge>
           </div>
           <div style={{ display: "flex", flexDirection: "column", gap: 10 }}>
-            {myGroups.map((group) => (
+            {visibleGroups.map((group) => (
               <button
                 key={group.groupId}
                 type="button"
@@ -60,7 +68,17 @@ export function MyActivityOverview({ appliedEvents, myGroups }: MyActivityOvervi
                 <span style={itemMetaStyle}>{group.meetingRule} · {group.location}</span>
               </button>
             ))}
-            {myGroups.length === 0 && <span style={emptyStyle}>아직 참여 중인 모임이 없어요.</span>}
+            {myGroups.length === 0 && (
+              <div style={emptyActionStyle}>
+                <span style={emptyStyle}>아직 참여 중인 모임이 없어요.</span>
+                <Button variant="secondary" size="sm" onClick={() => navigate("/home")}>모임 탐색하기</Button>
+              </div>
+            )}
+            {myGroups.length > 0 && (
+              <Button variant="ghost" size="sm" onClick={() => navigate("/my-groups")} style={{ alignSelf: "flex-start", padding: 0 }}>
+                내 모임 전체보기
+              </Button>
+            )}
           </div>
         </Card>
       </div>
@@ -99,8 +117,15 @@ const itemMetaStyle: React.CSSProperties = {
 };
 
 const emptyStyle: React.CSSProperties = {
-  padding: "12px 0",
   fontFamily: "var(--font-sans)",
   fontSize: 13,
   color: "var(--muted)",
+};
+
+const emptyActionStyle: React.CSSProperties = {
+  display: "flex",
+  flexDirection: "column",
+  alignItems: "flex-start",
+  gap: 10,
+  padding: "12px 0",
 };
