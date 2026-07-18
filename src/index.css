@@ -27,3 +27,26 @@ body {
 a {
   color: inherit;
 }
+
+@media (max-width: 760px) {
+  .cl-event-info-grid,
+  .cl-mypage-stats,
+  .cl-mypage-main,
+  .cl-activity-overview-grid {
+    grid-template-columns: 1fr !important;
+  }
+
+  .cl-event-actions,
+  .cl-mypage-profile {
+    align-items: stretch !important;
+    flex-direction: column;
+  }
+
+  .cl-event-actions > button {
+    width: 100% !important;
+  }
+
+  .cl-mypage {
+    padding: 20px !important;
+  }
+}

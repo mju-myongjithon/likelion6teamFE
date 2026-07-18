@@ -43,3 +43,13 @@ export const updateEvent = (eventId: string | number, data: EventRequest) =>
 /** 해커톤·행사 삭제 (등록자만 가능) */
 export const deleteEvent = (eventId: string | number) =>
   apiClient.delete<void>(`/api/events/${eventId}`);
+
+export interface EventApplicationStatus {
+  applied: boolean;
+}
+
+export const getEventApplicationStatus = (eventId: string | number) =>
+  apiClient.get<EventApplicationStatus>(`/api/events/${eventId}/application`);
+
+export const applyToEvent = (eventId: string | number) =>
+  apiClient.put<void>(`/api/events/${eventId}/application`);

@@ -1,4 +1,5 @@
 import React from "react";
+import axios from "axios";
 import { useNavigate, useParams } from "react-router-dom";
 import { AppShell } from "../layouts/AppShell";
 import { Button } from "../components/ds/actions/Button";
@@ -8,7 +9,13 @@ import { Badge } from "../components/ds/display/Badge";
 import { Callout } from "../components/ds/feedback/Callout";
 import { Icon } from "../components/ds/foundations/Icon";
 import { useSavedItems } from "../context/savedItems";
-import { getEventDetail, deleteEvent, type EventDetail } from "../api/eventApi";
+import {
+  applyToEvent,
+  deleteEvent,
+  getEventApplicationStatus,
+  getEventDetail,
+  type EventDetail,
+} from "../api/eventApi";
 import { getMyProfile } from "../api/profileApi";
 
 interface InquiryItem {
@@ -63,6 +70,10 @@ export function EventDetailPage(): JSX.Element {
   const [event, setEvent] = React.useState<EventDetail | null>(null);
   const [loading, setLoading] = React.useState(true);
   const [loadError, setLoadError] = React.useState<string | null>(null);
+  const [applied, setApplied] = React.useState(false);
+  const [applicationStatusLoading, setApplicationStatusLoading] = React.useState(true);
+  const [applying, setApplying] = React.useState(false);
+  const [applicationMessage, setApplicationMessage] = React.useState<string | null>(null);
 
   React.useEffect(() => {
     if (!eventId) return;
@@ -73,6 +84,16 @@ export function EventDetailPage(): JSX.Element {
         setLoadError("행사 정보를 불러오지 못했습니다.");
       })
       .finally(() => setLoading(false));
+  }, [eventId]);
+
+  React.useEffect(() => {
+    if (!eventId) return;
+    getEventApplicationStatus(eventId)
+      .then((res) => setApplied(res.data.applied))
+      .catch(() => {
+        // 비로그인 사용자는 상세 정보만 볼 수 있다.
+      })
+      .finally(() => setApplicationStatusLoading(false));
   }, [eventId]);
 
   const [inquiry, setInquiry] = React.useState<string>("");
@@ -136,6 +157,26 @@ export function EventDetailPage(): JSX.Element {
     window.setTimeout(() => setJustSubmitted(false), 2000);
   }
 
+  function handleApply(): void {
+    if (!eventId || applied || applying || applicationStatusLoading) return;
+    setApplying(true);
+    setApplicationMessage(null);
+    applyToEvent(eventId)
+      .then(() => {
+        setApplied(true);
+        setApplicationMessage("마이페이지 달력에 신청 일정이 표시됐어요.");
+      })
+      .catch((err) => {
+        console.error("행사 신청 일정 기록 실패:", err);
+        setApplicationMessage(
+          axios.isAxiosError<{ message?: string }>(err)
+            ? err.response?.data?.message ?? "신청 일정을 기록하지 못했습니다."
+            : "신청 일정을 기록하지 못했습니다."
+        );
+      })
+      .finally(() => setApplying(false));
+  }
+
   function handleInquiryKeyDown(e: React.KeyboardEvent<HTMLInputElement>): void {
     if (e.key === "Enter") {
       e.preventDefault();
@@ -197,7 +238,6 @@ export function EventDetailPage(): JSX.Element {
   }
 
   const start = formatDateTime(event.startsAt);
-
   return (
     <AppShell>
       <div style={{ padding: "var(--space-xl)", maxWidth: 780 }}>
@@ -217,7 +257,7 @@ export function EventDetailPage(): JSX.Element {
           </div>
         </div>
         <Callout style={{ marginBottom: "var(--space-lg)" }}>주최: {event.organizer}</Callout>
-        <div style={{ display: "grid", gridTemplateColumns: "repeat(3,1fr)", gap: "var(--space-sm)", marginBottom: "var(--space-lg)" }}>
+        <div className="cl-event-info-grid" style={{ display: "grid", gridTemplateColumns: "repeat(3,1fr)", gap: "var(--space-sm)", marginBottom: "var(--space-lg)" }}>
           <InfoTile icon="clock" label="시작" value={start.full} />
           <InfoTile icon="map-pin" label="장소" value={event.location} />
           <InfoTile icon="calendar" label="신청 마감" value={formatDateTime(event.applicationDeadlineAt).full} />
@@ -438,7 +478,7 @@ export function EventDetailPage(): JSX.Element {
             </div>
           )}
         </div>
-        <div style={{ display: "flex", gap: "var(--space-sm)", position: "sticky", bottom: 0, background: "var(--canvas)", paddingTop: "var(--space-xs)" }}>
+        <div className="cl-event-actions" style={{ display: "flex", gap: "var(--space-sm)", position: "sticky", bottom: 0, background: "var(--canvas)", paddingTop: "var(--space-xs)" }}>
           {isHost ? (
             <>
               <Button variant="secondary" size="lg" iconLeft={<Icon name="pencil" size={16} />} onClick={() => navigate(`/events/${event.eventId}/edit`)}>
@@ -449,7 +489,9 @@ export function EventDetailPage(): JSX.Element {
               </Button>
             </>
           ) : (
-            <Button variant="primary" size="lg" onClick={() => navigate("/apply/complete")}>참가 신청하기</Button>
+            <Button variant="primary" size="lg" onClick={handleApply} disabled={applied || applying || applicationStatusLoading}>
+              {applied ? "신청 표시됨" : applying ? "기록 중..." : applicationStatusLoading ? "신청 상태 확인 중..." : "참가 신청 표시하기"}
+            </Button>
           )}
           <Button
             variant="secondary"
@@ -472,6 +514,16 @@ export function EventDetailPage(): JSX.Element {
           </Button>
           <Button variant="secondary" size="lg" iconLeft={<Icon name="share-2" size={16} />}>공유</Button>
         </div>
+        {!isHost && (
+          <div style={{ marginTop: "var(--space-xs)", fontFamily: "var(--font-sans)", fontSize: 12, color: "var(--muted)" }}>
+            이 버튼은 CampusLink 마이페이지에 일정만 기록하며, 주최 측 실제 참가 접수는 관련 링크에서 별도로 해야 합니다.
+          </div>
+        )}
+        {!isHost && applicationMessage && (
+          <div style={{ marginTop: "var(--space-xs)", fontFamily: "var(--font-sans)", fontSize: 13, color: applied ? "var(--brand-accent)" : "var(--danger, #e5484d)" }}>
+            {applicationMessage}
+          </div>
+        )}
       </div>
     </AppShell>
   );

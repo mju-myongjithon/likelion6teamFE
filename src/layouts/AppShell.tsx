@@ -5,6 +5,7 @@ import { Avatar } from "../components/ds/display/Avatar";
 import { Icon } from "../components/ds/foundations/Icon";
 import { ProfilePopover, type ProfilePopoverEvent } from "../components/ds/display/ProfilePopover";
 import { getMyProfile } from "../api/profileApi";
+import { getMyPageSummary } from "../api/myPageApi";
 import { logout } from "../api/authApi";
 
 export type AppNavId = "home" | "my" | "chat" | "mypage";
@@ -16,12 +17,6 @@ const APP_NAV: NavItem[] = [
   { id: "my", label: "내 모임", icon: "users", to: "/my-groups" },
   { id: "chat", label: "채팅", icon: "message-circle", to: "/chat" },
   { id: "mypage", label: "마이페이지", icon: "user", to: "/mypage" },
-];
-
-const PROFILE_EVENTS: ProfilePopoverEvent[] = [
-  { title: "주말 알고리즘 스터디", when: "토 오후 2시" },
-  { title: "AI 논문 리딩 그룹", when: "수 저녁 8시" },
-  { title: "AI 해커톤 2026", when: "2/14 오전 10시" },
 ];
 
 function Sidebar(): JSX.Element {
@@ -74,6 +69,7 @@ function Header({ q, setQ }: HeaderProps): JSX.Element {
   const popoverRef = React.useRef<HTMLDivElement>(null);
   const [profileName, setProfileName] = React.useState("");
   const [profileMeta, setProfileMeta] = React.useState("");
+  const [profileEvents, setProfileEvents] = React.useState<ProfilePopoverEvent[]>([]);
 
   React.useEffect(() => {
     getMyProfile()
@@ -82,6 +78,21 @@ function Header({ q, setQ }: HeaderProps): JSX.Element {
         setProfileMeta(`${res.data.schoolName} · ${res.data.departmentName}`);
       })
       .catch((err) => console.error("프로필 조회 실패:", err));
+
+    const now = new Date();
+    getMyPageSummary(now.getFullYear(), now.getMonth() + 1)
+      .then((res) => {
+        const meetupEvents = res.data.activities.map((activity) => ({
+          title: activity.name,
+          when: `${activity.date.slice(5).replace("-", "/")} ${activity.time.slice(0, 5)}`,
+        }));
+        const appliedEvents = res.data.appliedEvents.map((event) => ({
+          title: event.title,
+          when: new Date(event.startsAt).toLocaleDateString("ko-KR", { month: "numeric", day: "numeric" }),
+        }));
+        setProfileEvents([...meetupEvents, ...appliedEvents].slice(0, 5));
+      })
+      .catch((err) => console.error("다가오는 일정 조회 실패:", err));
   }, []);
 
   React.useEffect(() => {
@@ -120,7 +131,7 @@ function Header({ q, setQ }: HeaderProps): JSX.Element {
             name={profileName || "..."}
             meta={profileMeta}
             avatarTone="violet"
-            events={PROFILE_EVENTS}
+            events={profileEvents}
             onViewProfile={() => { setPopoverOpen(false); navigate("/mypage"); }}
             onLogout={handleLogout}
           />
