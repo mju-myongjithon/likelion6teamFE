@@ -136,6 +136,7 @@ export function HomePage(): JSX.Element {
               tagTone: "orange",
               matchScore: null,
               attendance: "",
+              posterUrl: item.posterUrl,
               description: "",
               matchReason: "",
               features: [],
