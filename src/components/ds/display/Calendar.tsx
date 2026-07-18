@@ -68,11 +68,14 @@ export function Calendar({
           if (day == null) return <div key={i} />;
           const isToday = day === today;
           const dayEvents = eventsByDay.get(day) || [];
+          const eventLabels = dayEvents.map((event) => event.label).filter(Boolean).join(", ");
           return (
             <button
               key={i}
               type="button"
               onClick={() => onSelectDay && onSelectDay(day)}
+              aria-label={eventLabels ? `${day}일: ${eventLabels}` : `${day}일`}
+              title={eventLabels || undefined}
               style={{
                 display: "flex",
                 flexDirection: "column",

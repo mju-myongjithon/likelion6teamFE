@@ -8,6 +8,7 @@ import { Stat } from "../components/ds/display/Stat";
 import { Calendar } from "../components/ds/display/Calendar";
 import { Icon } from "../components/ds/foundations/Icon";
 import { getMyProfile, type ProfileResponse } from "../api/profileApi";
+import { getMyPageSummary, type MyPageSummary } from "../api/myPageApi";
 
 function daysSince(iso: string): number {
   const start = new Date(iso);
@@ -46,18 +47,29 @@ function TagRow({ label, items, emptyText }: { label: string; items: string[]; e
 export function MyPagePage(): JSX.Element {
   const navigate = useNavigate();
   const [profile, setProfile] = React.useState<ProfileResponse | null>(null);
+  const [summary, setSummary] = React.useState<MyPageSummary | null>(null);
+  const [viewedMonth, setViewedMonth] = React.useState(() => {
+    const now = new Date();
+    return new Date(now.getFullYear(), now.getMonth(), 1);
+  });
   const [loading, setLoading] = React.useState(true);
   const [error, setError] = React.useState<string | null>(null);
 
   React.useEffect(() => {
-    getMyProfile()
-      .then((res) => setProfile(res.data))
+    Promise.all([
+      getMyProfile(),
+      getMyPageSummary(viewedMonth.getFullYear(), viewedMonth.getMonth() + 1),
+    ])
+      .then(([profileResponse, summaryResponse]) => {
+        setProfile(profileResponse.data);
+        setSummary(summaryResponse.data);
+      })
       .catch((err) => {
-        console.error("프로필 조회 실패:", err);
-        setError("프로필을 불러오지 못했습니다.");
+        console.error("마이페이지 조회 실패:", err);
+        setError("마이페이지 정보를 불러오지 못했습니다.");
       })
       .finally(() => setLoading(false));
-  }, []);
+  }, [viewedMonth]);
 
   if (loading) {
     return (
@@ -67,7 +79,7 @@ export function MyPagePage(): JSX.Element {
     );
   }
 
-  if (error || !profile) {
+  if (error || !profile || !summary) {
     return (
       <AppShell>
         <div style={{ padding: 28, color: "var(--danger, red)" }}>{error ?? "프로필이 없습니다."}</div>
@@ -93,9 +105,13 @@ export function MyPagePage(): JSX.Element {
         </div>
 
         <div style={{ display: "grid", gridTemplateColumns: "repeat(3,1fr)", gap: 16, marginBottom: 28 }}>
-          <Stat value={12} label="참여한 모임" icon={<Icon name="users" size={18} />} />
-          <Stat value="94%" label="AI 매칭 성사율" icon={<Icon name="sparkles" size={18} />} />
-          <Stat value={6} label="이번 달 활동" icon={<Icon name="calendar-check" size={18} />} />
+          <Stat value={summary.participatedGroupCount} label="참여한 모임" icon={<Icon name="users" size={18} />} />
+          <Stat value={`${summary.aiMatchSuccessRate}%`} label="AI 매칭 성사율" icon={<Icon name="sparkles" size={18} />} />
+          <Stat
+            value={summary.monthlyActivityCount}
+            label={isCurrentMonth(viewedMonth) ? "이번 달 활동" : `${viewedMonth.getMonth() + 1}월 활동`}
+            icon={<Icon name="calendar-check" size={18} />}
+          />
         </div>
 
         <div style={{ display: "grid", gridTemplateColumns: `1fr calc(var(--space-section) * 3 + var(--space-xl))`, gap: 20, alignItems: "start" }}>
@@ -124,9 +140,26 @@ export function MyPagePage(): JSX.Element {
               </div>
             </div>
           </div>
-          <Calendar monthLabel="2026년 2월" startOffset={0} daysInMonth={28} today={9} events={[{ day: 1 }, { day: 8 }, { day: 9 }, { day: 15 }, { day: 22 }]} />
+          <Calendar
+            monthLabel={`${viewedMonth.getFullYear()}년 ${viewedMonth.getMonth() + 1}월`}
+            startOffset={new Date(viewedMonth.getFullYear(), viewedMonth.getMonth(), 1).getDay()}
+            daysInMonth={new Date(viewedMonth.getFullYear(), viewedMonth.getMonth() + 1, 0).getDate()}
+            today={isCurrentMonth(viewedMonth) ? new Date().getDate() : null}
+            events={summary.activities.map((activity) => ({
+              day: Number(activity.date.slice(8, 10)),
+              label: activity.name,
+              tone: activity.status === "CONFIRMED" ? "accent" : "default",
+            }))}
+            onPrev={() => setViewedMonth((month) => new Date(month.getFullYear(), month.getMonth() - 1, 1))}
+            onNext={() => setViewedMonth((month) => new Date(month.getFullYear(), month.getMonth() + 1, 1))}
+          />
         </div>
       </div>
     </AppShell>
   );
+}
+
+function isCurrentMonth(month: Date): boolean {
+  const today = new Date();
+  return month.getFullYear() === today.getFullYear() && month.getMonth() === today.getMonth();
 }
