@@ -8,7 +8,6 @@ import { Field } from "../components/ds/forms/Field";
 import { Badge } from "../components/ds/display/Badge";
 import { Callout } from "../components/ds/feedback/Callout";
 import { Icon } from "../components/ds/foundations/Icon";
-import { useSavedItems } from "../context/savedItems";
 import {
   applyToEvent,
   deleteEvent,
@@ -217,9 +216,6 @@ export function EventDetailPage(): JSX.Element {
     const interval = window.setInterval(() => setTick((t) => t + 1), 60000);
     return () => window.clearInterval(interval);
   }, []);
-
-  const { isSaved, toggleSave } = useSavedItems();
-  const saved = event ? isSaved(String(event.eventId)) : false;
 
   function handleSubmitInquiry(): void {
     const trimmed = inquiry.trim();
@@ -606,25 +602,6 @@ export function EventDetailPage(): JSX.Element {
               {applied ? "신청 표시됨" : applying ? "기록 중..." : applicationStatusLoading ? "신청 상태 확인 중..." : "참가 신청 표시하기"}
             </Button>
           )}
-          <Button
-            variant="secondary"
-            size="lg"
-            iconLeft={<Icon name={saved ? "bookmark-check" : "bookmark"} size={16} />}
-            onClick={() => toggleSave({
-              id: String(event.eventId),
-              type: "event",
-              title: event.title,
-              category: "해커톤",
-              categoryTone: "orange",
-              when: start.full,
-              where: event.location,
-              host: event.organizer,
-              members: 0,
-              capacity: 0,
-            })}
-          >
-            {saved ? "저장됨" : "저장"}
-          </Button>
           <Button variant="secondary" size="lg" iconLeft={<Icon name="share-2" size={16} />}>공유</Button>
         </div>
         {!isHost && (
