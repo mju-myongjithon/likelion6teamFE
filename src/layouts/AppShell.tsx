@@ -7,6 +7,7 @@ import { ProfilePopover, type ProfilePopoverEvent } from "../components/ds/displ
 import { getMyProfile } from "../api/profileApi";
 import { getMyPageSummary } from "../api/myPageApi";
 import { logout } from "../api/authApi";
+import "./AppShell.css";
 
 export type AppNavId = "home" | "my" | "chat" | "mypage";
 
@@ -21,16 +22,18 @@ const APP_NAV: NavItem[] = [
 
 function Sidebar(): JSX.Element {
   return (
-    <aside style={{ width: 240, flexShrink: 0, borderRight: "1px solid var(--hairline)", background: "var(--canvas)", padding: 20, boxSizing: "border-box", display: "flex", flexDirection: "column", height: "100%", minHeight: 0, overflowY: "auto" }}>
-      <NavLink to="/home" style={{ display: "flex", alignItems: "center", gap: 8, padding: "var(--space-xs) var(--space-xs)", marginBottom: 24, textDecoration: "none" }}>
+    <aside className="cl-app-sidebar" aria-label="주요 메뉴" style={{ width: 240, flexShrink: 0, borderRight: "1px solid var(--hairline)", background: "var(--canvas)", padding: 20, boxSizing: "border-box", display: "flex", flexDirection: "column", height: "100%", minHeight: 0, overflowY: "auto" }}>
+      <NavLink className="cl-app-logo" to="/home" aria-label="CampusLink 홈" style={{ display: "flex", alignItems: "center", gap: 8, padding: "var(--space-xs) var(--space-xs)", marginBottom: 24, textDecoration: "none" }}>
         <span style={{ width: 22, height: 22, borderRadius: "var(--radius-full)", background: "var(--primary)" }} />
-        <span style={{ fontFamily: "var(--font-display)", fontSize: 18, fontWeight: 600, letterSpacing: "-0.5px", color: "var(--ink)" }}>CampusLink</span>
+        <span className="cl-app-logo-label" style={{ fontFamily: "var(--font-display)", fontSize: 18, fontWeight: 600, letterSpacing: "-0.5px", color: "var(--ink)" }}>CampusLink</span>
       </NavLink>
       <nav style={{ display: "flex", flexDirection: "column", gap: 2 }}>
         {APP_NAV.map((n) => (
           <NavLink
+            className="cl-app-nav-link"
             key={n.id}
             to={n.to}
+            aria-label={n.label}
             style={({ isActive }) => ({
               display: "flex",
               alignItems: "center",
@@ -48,7 +51,7 @@ function Sidebar(): JSX.Element {
             {({ isActive }) => (
               <>
                 <Icon name={n.icon} size={18} color={isActive ? "var(--ink)" : "var(--muted)"} />
-                {n.label}
+                <span className="cl-app-nav-label">{n.label}</span>
               </>
             )}
           </NavLink>
@@ -118,7 +121,7 @@ function Header({ q, setQ }: HeaderProps): JSX.Element {
   };
 
   return (
-    <header style={{ position: "relative", display: "flex", alignItems: "center", gap: 16, padding: "var(--space-md) var(--space-xl)", borderBottom: "1px solid var(--hairline)", background: "var(--canvas)" }}>
+    <header className="cl-app-header" style={{ position: "relative", display: "flex", alignItems: "center", gap: 16, padding: "var(--space-md) var(--space-xl)", borderBottom: "1px solid var(--hairline)", background: "var(--canvas)" }}>
       <div style={{ flex: 1, maxWidth: 420 }}>
         <Input placeholder="관심 있는 모임을 검색하세요" iconLeft={<Icon name="search" size={18} />} value={q} onChange={setQ ? (e) => setQ(e.target.value) : undefined} />
       </div>
@@ -150,9 +153,9 @@ export interface AppShellProps {
 /** App chrome: fixed sidebar + search header + scrollable main. */
 export function AppShell({ q, setQ, children }: AppShellProps): JSX.Element {
   return (
-    <div style={{ display: "flex", height: "100%", background: "var(--surface-soft)", fontFamily: "var(--font-sans)" }}>
+    <div className="cl-app-shell" style={{ display: "flex", height: "100%", background: "var(--surface-soft)", fontFamily: "var(--font-sans)" }}>
       <Sidebar />
-      <div style={{ flex: 1, display: "flex", flexDirection: "column", minWidth: 0, minHeight: 0 }}>
+      <div className="cl-app-content" style={{ flex: 1, display: "flex", flexDirection: "column", minWidth: 0, minHeight: 0 }}>
         <Header q={q} setQ={setQ} />
         <main style={{ flex: 1, minHeight: 0, overflowY: "auto", background: "var(--canvas)" }}>{children}</main>
       </div>

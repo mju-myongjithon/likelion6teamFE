@@ -1,0 +1,39 @@
+.cl-app-shell {
+  width: 100%;
+  min-width: 0;
+  overflow: hidden;
+}
+
+.cl-app-content {
+  min-width: 0;
+}
+
+@media (max-width: 760px) {
+  .cl-app-sidebar {
+    width: 68px !important;
+    padding: 12px 8px !important;
+    overflow-x: hidden;
+  }
+
+  .cl-app-logo {
+    justify-content: center;
+    margin-bottom: 18px !important;
+    padding: var(--space-xs) 0 !important;
+  }
+
+  .cl-app-logo-label,
+  .cl-app-nav-label {
+    display: none;
+  }
+
+  .cl-app-nav-link {
+    justify-content: center;
+    gap: 0 !important;
+    padding: var(--space-sm) 0 !important;
+  }
+
+  .cl-app-header {
+    gap: 10px !important;
+    padding: 12px !important;
+  }
+}
