@@ -6,9 +6,7 @@ import { Badge } from "../components/ds/display/Badge";
 import { Button } from "../components/ds/actions/Button";
 import { Stat } from "../components/ds/display/Stat";
 import { Calendar, type CalendarEvent } from "../components/ds/display/Calendar";
-import { Card } from "../components/ds/cards/Card";
 import { Callout } from "../components/ds/feedback/Callout";
-import { ProgressBar } from "../components/ds/feedback/ProgressBar";
 import { Icon } from "../components/ds/foundations/Icon";
 import { getMyProfile, type ProfileResponse } from "../api/profileApi";
 import {
@@ -19,13 +17,6 @@ import {
 import { getMyApplications } from "../api/groupApplicationApi";
 import { MyActivityOverview } from "../components/MyActivityOverview";
 
-const PROFILE_FIELDS = [
-  { key: "bio", label: "자기소개" },
-  { key: "interests", label: "관심사" },
-  { key: "purposes", label: "활동 목적" },
-  { key: "roles", label: "역할" },
-] as const;
-
 interface ScheduleItem {
   id: string;
   title: string;
@@ -34,16 +25,6 @@ interface ScheduleItem {
   type: "meetup" | "event";
   eventId?: number;
   groupId?: number;
-}
-
-function hasProfileValue(profile: ProfileResponse, key: typeof PROFILE_FIELDS[number]["key"]): boolean {
-  const value = profile[key];
-  return Array.isArray(value) ? value.length > 0 : Boolean(value?.trim());
-}
-
-function profileCompletion(profile: ProfileResponse): number {
-  const completed = PROFILE_FIELDS.filter(({ key }) => hasProfileValue(profile, key)).length;
-  return Math.round((completed / PROFILE_FIELDS.length) * 100);
 }
 
 function createSchedule(summary: MyPageSummary, month: Date): ScheduleItem[] {
@@ -194,8 +175,6 @@ export function MyPagePage(): JSX.Element {
 
   const interests = profile.interests.slice(0, 3);
   const extraInterestCount = Math.max(0, profile.interests.length - interests.length);
-  const completion = profileCompletion(profile);
-  const missingFields = PROFILE_FIELDS.filter(({ key }) => !hasProfileValue(profile, key));
   const schedule = summary ? createSchedule(summary, viewedMonth) : [];
   const monthLabel = `${viewedMonth.getFullYear()}년 ${viewedMonth.getMonth() + 1}월`;
   const editProfile = () => navigate("/signup/profile", { state: { mode: "edit", profile } });
@@ -225,8 +204,8 @@ export function MyPagePage(): JSX.Element {
         </section>
 
         <section className="cl-mypage-stats" aria-label="내 활동 요약">
-          <Stat value={`${completion}%`} label="프로필 완성도" icon={<Icon name="circle-user-round" size={18} />} />
           <Stat value={summary?.participatedGroupCount ?? "—"} label="내 모임" icon={<Icon name="users" size={18} />} />
+          <Stat value={summaryLoading || summaryError ? "—" : schedule.length} label={`${viewedMonth.getMonth() + 1}월 일정`} icon={<Icon name="calendar-days" size={18} />} />
           <Stat
             value={pendingApplicationCount ?? "—"}
             label={applicationsError ? "승인 대기 · 확인 불가" : "승인 대기"}
@@ -234,40 +213,12 @@ export function MyPagePage(): JSX.Element {
           />
         </section>
 
-        <section className="cl-mypage-content-grid">
-          <Card padding={24} style={{ minWidth: 0 }}>
-            <div className="cl-mypage-section-heading">
-              <div>
-                <h2>프로필 완성도</h2>
-                <p>{completion === 100 ? "모임에서 나를 잘 알아볼 수 있어요." : "정보를 채우면 더 잘 맞는 모임을 찾기 쉬워져요."}</p>
-              </div>
-              <strong>{completion}%</strong>
-            </div>
-            <ProgressBar value={completion / 100} showLabel={false} style={{ margin: "18px 0 20px" }} />
-            <div className="cl-mypage-completion-grid">
-              {PROFILE_FIELDS.map(({ key, label }) => {
-                const complete = hasProfileValue(profile, key);
-                return (
-                  <div key={key} className={`cl-mypage-completion-item${complete ? " is-complete" : ""}`}>
-                    <Icon name={complete ? "check" : "plus"} size={15} />
-                    <span>{label}</span>
-                    <span>{complete ? "완료" : "미입력"}</span>
-                  </div>
-                );
-              })}
-            </div>
-            {missingFields.length > 0 && (
-              <Button variant="ghost" size="sm" onClick={editProfile} iconRight={<Icon name="arrow-right" size={15} />} style={{ marginTop: 14, padding: 0 }}>
-                누락된 정보 채우기
-              </Button>
-            )}
-          </Card>
-
-          <section aria-labelledby="schedule-title">
+        <section className="cl-mypage-calendar-grid">
+          <section className="cl-mypage-calendar-panel" aria-labelledby="schedule-title">
             <div className="cl-mypage-schedule-heading">
               <div>
                 <h2 id="schedule-title">{viewedMonth.getMonth() + 1}월 일정</h2>
-                <p>{summaryLoading ? "일정을 불러오는 중..." : `모임과 신청 행사를 합쳐 ${schedule.length}개예요.`}</p>
+                <p>{summaryLoading ? "일정을 불러오는 중..." : "모임과 신청 행사를 달력에서 확인하세요."}</p>
               </div>
               <span>{monthLabel}</span>
             </div>
@@ -287,47 +238,59 @@ export function MyPagePage(): JSX.Element {
               events={summary && !summaryError ? calendarEvents(summary, viewedMonth) : []}
               onPrev={() => moveMonth(-1)}
               onNext={() => moveMonth(1)}
-              style={{ opacity: summaryLoading ? 0.62 : 1 }}
+              style={{
+                flex: 1,
+                padding: 0,
+                border: "none",
+                borderRadius: 0,
+                opacity: summaryLoading ? 0.62 : 1,
+              }}
             />
           </section>
-        </section>
 
-        <section className="cl-mypage-month-preview" aria-labelledby="month-preview-title">
-          <div className="cl-mypage-section-heading">
-            <div>
-              <h2 id="month-preview-title">{viewedMonth.getMonth() + 1}월 일정 미리보기</h2>
-              <p>현재 조회 중인 달의 일정을 날짜순으로 보여드려요.</p>
+          <section className="cl-mypage-month-preview" aria-labelledby="month-preview-title">
+            <div className="cl-mypage-section-heading">
+              <div>
+                <h2 id="month-preview-title">{viewedMonth.getMonth() + 1}월 일정 미리보기</h2>
+                <p>현재 조회 중인 달의 일정을 날짜순으로 보여드려요.</p>
+              </div>
             </div>
-          </div>
-          {!summaryLoading && !summaryError && schedule.length === 0 && (
-            <div className="cl-mypage-empty">
-              <span>이 달에 예정된 일정이 없어요.</span>
-              <Button variant="secondary" size="sm" onClick={() => navigate("/home")}>모임 탐색하기</Button>
-            </div>
-          )}
-          {summaryLoading && <div className="cl-mypage-empty" role="status">일정을 불러오는 중...</div>}
-          {!summaryLoading && !summaryError && schedule.length > 0 && (
-            <div className="cl-mypage-schedule-list">
-              {schedule.slice(0, 5).map((item) => (
-                item.eventId || item.groupId ? (
-                  <button
-                    key={item.id}
-                    type="button"
-                    className="cl-mypage-schedule-item"
-                    onClick={() => navigate(item.eventId ? `/events/${item.eventId}` : `/groups/${item.groupId}`)}
-                    aria-label={`${item.type === "event" ? "행사" : "모임"} ${item.title}, ${formatScheduleDate(item)}`}
-                  >
-                    <ScheduleItemContent item={item} />
-                    <Icon name="chevron-right" size={17} color="var(--muted)" />
-                  </button>
-                ) : (
-                  <div key={item.id} className="cl-mypage-schedule-item">
-                    <ScheduleItemContent item={item} />
-                  </div>
-                )
-              ))}
-            </div>
-          )}
+            {!summaryLoading && summaryError && (
+              <div className="cl-mypage-empty" role="alert">
+                <span>일정 목록을 불러오지 못했습니다.</span>
+                <Button variant="secondary" size="sm" onClick={retrySummary}>다시 시도</Button>
+              </div>
+            )}
+            {!summaryLoading && !summaryError && schedule.length === 0 && (
+              <div className="cl-mypage-empty">
+                <span>이 달에 예정된 일정이 없어요.</span>
+                <Button variant="secondary" size="sm" onClick={() => navigate("/home")}>모임 탐색하기</Button>
+              </div>
+            )}
+            {summaryLoading && <div className="cl-mypage-empty" role="status">일정을 불러오는 중...</div>}
+            {!summaryLoading && !summaryError && schedule.length > 0 && (
+              <div className="cl-mypage-schedule-list">
+                {schedule.slice(0, 5).map((item) => (
+                  item.eventId || item.groupId ? (
+                    <button
+                      key={item.id}
+                      type="button"
+                      className="cl-mypage-schedule-item"
+                      onClick={() => navigate(item.eventId ? `/events/${item.eventId}` : `/groups/${item.groupId}`)}
+                      aria-label={`${item.type === "event" ? "행사" : "모임"} ${item.title}, ${formatScheduleDate(item)}`}
+                    >
+                      <ScheduleItemContent item={item} />
+                      <Icon name="chevron-right" size={17} color="var(--muted)" />
+                    </button>
+                  ) : (
+                    <div key={item.id} className="cl-mypage-schedule-item">
+                      <ScheduleItemContent item={item} />
+                    </div>
+                  )
+                ))}
+              </div>
+            )}
+          </section>
         </section>
 
         {summary && !summaryError && (

@@ -81,11 +81,21 @@ a {
   margin-bottom: 28px;
 }
 
-.cl-mypage-content-grid {
+.cl-mypage-calendar-grid {
   display: grid;
-  grid-template-columns: minmax(0, 1fr) minmax(320px, 0.9fr);
+  grid-template-columns: repeat(2, minmax(0, 1fr));
   gap: 20px;
-  align-items: start;
+  align-items: stretch;
+}
+
+.cl-mypage-calendar-panel,
+.cl-mypage-month-preview {
+  display: flex;
+  flex-direction: column;
+  min-width: 0;
+  padding: 24px;
+  border: 1px solid var(--hairline);
+  border-radius: var(--radius-lg);
 }
 
 .cl-mypage-section-heading,
@@ -112,12 +122,6 @@ a {
   line-height: 1.5;
 }
 
-.cl-mypage-section-heading > strong {
-  color: var(--ink);
-  font-family: var(--font-display);
-  font-size: 24px;
-}
-
 .cl-mypage-schedule-heading {
   margin-bottom: 12px;
 }
@@ -128,38 +132,8 @@ a {
   font-size: 13px;
 }
 
-.cl-mypage-completion-grid {
-  display: grid;
-  grid-template-columns: repeat(2, minmax(0, 1fr));
-  gap: 8px;
-}
-
-.cl-mypage-completion-item {
-  display: grid;
-  grid-template-columns: auto 1fr auto;
-  align-items: center;
-  gap: 8px;
-  padding: 10px 12px;
-  border-radius: var(--radius-md);
-  background: var(--surface-soft);
-  color: var(--muted);
-  font-size: 13px;
-}
-
-.cl-mypage-completion-item.is-complete {
-  color: var(--body);
-}
-
-.cl-mypage-completion-item > span:last-child {
-  color: var(--muted-soft);
-  font-size: 12px;
-}
-
 .cl-mypage-month-preview {
-  margin-top: 28px;
-  padding: 24px;
-  border: 1px solid var(--hairline);
-  border-radius: var(--radius-lg);
+  overflow: hidden;
 }
 
 .cl-mypage-month-preview > .cl-mypage-section-heading {
@@ -168,6 +142,8 @@ a {
 
 .cl-mypage-schedule-list {
   display: grid;
+  align-content: start;
+  flex: 1;
   grid-template-columns: minmax(0, 1fr);
   gap: 8px;
 }
@@ -245,6 +221,67 @@ a {
   cursor: pointer;
 }
 
+.cl-calendar-day {
+  position: relative;
+  outline-offset: 2px;
+}
+
+.cl-calendar-event-tooltip {
+  position: absolute;
+  z-index: 10;
+  bottom: calc(100% + 7px);
+  left: 50%;
+  display: flex;
+  visibility: hidden;
+  width: max-content;
+  max-width: min(240px, calc(100vw - 48px));
+  padding: 8px 10px;
+  border-radius: var(--radius-md);
+  background: var(--ink);
+  box-shadow: 0 5px 16px rgb(0 0 0 / 16%);
+  color: var(--canvas);
+  flex-direction: column;
+  gap: 4px;
+  font-family: var(--font-sans);
+  font-size: 12px;
+  font-weight: 500;
+  line-height: 1.4;
+  opacity: 0;
+  overflow-wrap: anywhere;
+  pointer-events: none;
+  text-align: left;
+  transform: translateX(-50%) translateY(3px);
+  transition: opacity 120ms ease, transform 120ms ease, visibility 120ms ease;
+}
+
+.cl-calendar-day:hover .cl-calendar-event-tooltip,
+.cl-calendar-day:focus-visible .cl-calendar-event-tooltip {
+  visibility: visible;
+  opacity: 1;
+  transform: translateX(-50%) translateY(0);
+}
+
+.cl-calendar-day[data-edge="start"] .cl-calendar-event-tooltip {
+  left: 0;
+  transform: translateY(3px);
+}
+
+.cl-calendar-day[data-edge="start"]:hover .cl-calendar-event-tooltip,
+.cl-calendar-day[data-edge="start"]:focus-visible .cl-calendar-event-tooltip {
+  transform: translateY(0);
+}
+
+.cl-calendar-day[data-edge="end"] .cl-calendar-event-tooltip {
+  right: 0;
+  left: auto;
+  transform: translateY(3px);
+}
+
+.cl-calendar-day[data-edge="end"]:hover .cl-calendar-event-tooltip,
+.cl-calendar-day[data-edge="end"]:focus-visible .cl-calendar-event-tooltip {
+  transform: translateY(0);
+}
+
 @media (max-width: 760px) {
   .cl-event-info-grid,
   .cl-mypage-stats,
@@ -271,11 +308,11 @@ a {
     width: 100% !important;
   }
 
-  .cl-mypage-content-grid,
-  .cl-mypage-completion-grid {
+  .cl-mypage-calendar-grid {
     grid-template-columns: 1fr;
   }
 
+  .cl-mypage-calendar-panel,
   .cl-mypage-month-preview {
     padding: 18px;
   }
