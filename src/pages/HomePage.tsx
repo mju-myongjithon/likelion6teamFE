@@ -95,7 +95,6 @@ function ProfileAvatar({ avatarUrl, name }: { avatarUrl?: string; name: string }
 export function HomePage(): JSX.Element {
   const navigate = useNavigate();
   const [cat, setCat] = React.useState<string>("전체");
-  const [q, setQ] = React.useState<string>("");
   const [profile, setProfile] = React.useState<ProfileResponse | null>(null);
   const [profileLoading, setProfileLoading] = React.useState(true);
   const [profileError, setProfileError] = React.useState<string | null>(null);
@@ -219,10 +218,7 @@ export function HomePage(): JSX.Element {
 
   let meetups = meetupsWithRecommendations;
   if (cat !== "전체") meetups = meetups.filter((m) => m.category === cat);
-  if (q) meetups = meetups.filter((m) => (m.title ?? "").includes(q));
-  const events = eventsWithRecommendations.filter(
-    (event) => cat !== "스터디" && (!q || event.title.includes(q))
-  );
+  const events = cat === "스터디" ? [] : eventsWithRecommendations;
   const recommendationSignals = profile
     ? Array.from(new Set([...profile.roles, ...profile.interests, ...profile.purposes]))
     : [];
@@ -236,7 +232,7 @@ export function HomePage(): JSX.Element {
   ].filter(Boolean);
 
   return (
-    <AppShell q={q} setQ={setQ}>
+    <AppShell>
       <div className="cl-home-page">
         <section className="cl-home-ai-hero" aria-labelledby="ai-briefing-title">
           <div className="cl-home-ai-briefing">

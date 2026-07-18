@@ -1,6 +1,5 @@
 import React from "react";
 import { NavLink, useNavigate } from "react-router-dom";
-import { Input } from "../components/ds/forms/Input";
 import { Avatar } from "../components/ds/display/Avatar";
 import { Icon } from "../components/ds/foundations/Icon";
 import { ProfilePopover, type ProfilePopoverEvent } from "../components/ds/display/ProfilePopover";
@@ -61,12 +60,7 @@ function Sidebar(): JSX.Element {
   );
 }
 
-interface HeaderProps {
-  q?: string;
-  setQ?: (v: string) => void;
-}
-
-function Header({ q, setQ }: HeaderProps): JSX.Element {
+function Header(): JSX.Element {
   const navigate = useNavigate();
   const [popoverOpen, setPopoverOpen] = React.useState(false);
   const popoverRef = React.useRef<HTMLDivElement>(null);
@@ -122,9 +116,6 @@ function Header({ q, setQ }: HeaderProps): JSX.Element {
 
   return (
     <header className="cl-app-header" style={{ position: "relative", display: "flex", alignItems: "center", gap: 16, padding: "var(--space-md) var(--space-xl)", borderBottom: "1px solid var(--hairline)", background: "var(--canvas)" }}>
-      <div style={{ flex: 1, maxWidth: 420 }}>
-        <Input placeholder="관심 있는 모임을 검색하세요" iconLeft={<Icon name="search" size={18} />} value={q} onChange={setQ ? (e) => setQ(e.target.value) : undefined} />
-      </div>
       <div style={{ marginLeft: "auto", display: "flex", alignItems: "center", gap: 12 }}>
         <span onClick={() => setPopoverOpen((v) => !v)} style={{ cursor: "pointer" }}><Avatar name={profileName || "나"} tone="violet" /></span>
       </div>
@@ -145,18 +136,16 @@ function Header({ q, setQ }: HeaderProps): JSX.Element {
 }
 
 export interface AppShellProps {
-  q?: string;
-  setQ?: (v: string) => void;
   children?: React.ReactNode;
 }
 
-/** App chrome: fixed sidebar + search header + scrollable main. */
-export function AppShell({ q, setQ, children }: AppShellProps): JSX.Element {
+/** App chrome: fixed sidebar + profile header + scrollable main. */
+export function AppShell({ children }: AppShellProps): JSX.Element {
   return (
     <div className="cl-app-shell" style={{ display: "flex", height: "100%", background: "var(--surface-soft)", fontFamily: "var(--font-sans)" }}>
       <Sidebar />
       <div className="cl-app-content" style={{ flex: 1, display: "flex", flexDirection: "column", minWidth: 0, minHeight: 0 }}>
-        <Header q={q} setQ={setQ} />
+        <Header />
         <main style={{ flex: 1, minHeight: 0, overflowY: "auto", background: "var(--canvas)" }}>{children}</main>
       </div>
     </div>
