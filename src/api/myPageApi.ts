@@ -14,6 +14,27 @@ export interface MyPageSummary {
   aiMatchSuccessRate: number;
   monthlyActivityCount: number;
   activities: MyPageActivity[];
+  appliedEvents: AppliedEvent[];
+  myGroups: MyPageGroup[];
+}
+
+export interface AppliedEvent {
+  eventId: number;
+  title: string;
+  organizer: string;
+  startsAt: string;
+  endsAt: string;
+  location: string;
+  relatedUrl: string;
+  appliedAt: string;
+}
+
+export interface MyPageGroup {
+  groupId: number;
+  title: string;
+  meetingRule: string;
+  location: string;
+  leader: boolean;
 }
 
 export const getMyPageSummary = (year: number, month: number) =>

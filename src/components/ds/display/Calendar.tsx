@@ -27,7 +27,7 @@ const WEEKDAYS = ["일", "월", "화", "수", "목", "금", "토"];
 
 /**
  * Calendar — month-grid calendar widget for scheduling surfaces (마이페이지).
- * Near-black dot marks days with events; today gets a filled circle. Monochrome.
+ * Event dots mark scheduled days; hovering a day exposes the event labels.
  */
 export function Calendar({
   monthLabel,
@@ -90,8 +90,8 @@ export function Calendar({
             >
               <span style={{ fontFamily: "var(--font-sans)", fontSize: 13, fontWeight: isToday ? 600 : 500, color: isToday ? "var(--on-primary)" : "var(--ink)" }}>{day}</span>
               <span style={{ display: "flex", gap: 2, height: 4 }}>
-                {dayEvents.slice(0, 3).map((_e, idx) => (
-                  <span key={idx} style={{ width: 4, height: 4, borderRadius: "var(--radius-full)", background: isToday ? "var(--on-primary)" : "var(--muted)" }} />
+                {dayEvents.slice(0, 3).map((event, idx) => (
+                  <span key={idx} style={{ width: 4, height: 4, borderRadius: "var(--radius-full)", background: isToday ? "var(--on-primary)" : event.tone === "accent" ? "var(--brand-accent)" : "var(--muted)" }} />
                 ))}
               </span>
             </button>

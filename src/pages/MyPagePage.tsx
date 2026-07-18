@@ -9,6 +9,7 @@ import { Calendar } from "../components/ds/display/Calendar";
 import { Icon } from "../components/ds/foundations/Icon";
 import { getMyProfile, type ProfileResponse } from "../api/profileApi";
 import { getMyPageSummary, type MyPageSummary } from "../api/myPageApi";
+import { MyActivityOverview } from "../components/MyActivityOverview";
 
 function daysSince(iso: string): number {
   const start = new Date(iso);
@@ -71,6 +72,12 @@ export function MyPagePage(): JSX.Element {
       .finally(() => setLoading(false));
   }, [viewedMonth]);
 
+  function moveMonth(offset: number): void {
+    setLoading(true);
+    setError(null);
+    setViewedMonth((month) => new Date(month.getFullYear(), month.getMonth() + offset, 1));
+  }
+
   if (loading) {
     return (
       <AppShell>
@@ -89,22 +96,22 @@ export function MyPagePage(): JSX.Element {
 
   return (
     <AppShell>
-      <div style={{ padding: 28, maxWidth: 900 }}>
-        <div style={{ display: "flex", alignItems: "center", gap: 20, marginBottom: 28 }}>
+      <div className="cl-mypage" style={{ padding: 28, maxWidth: 900 }}>
+        <div className="cl-mypage-profile" style={{ display: "flex", alignItems: "center", gap: 20, marginBottom: 28 }}>
           <Avatar name={profile.name} tone="violet" size={72} />
           <div style={{ flex: 1 }}>
             <h1 className="cl-display-sm" style={{ margin: 0 }}>{profile.name}</h1>
             <div style={{ fontFamily: "var(--font-sans)", fontSize: 14, color: "var(--muted)", margin: "var(--space-xs) 0 var(--space-sm)" }}>
               {profile.schoolName} · {profile.departmentName} · {profile.residenceArea}
             </div>
-            <div style={{ display: "flex", gap: 6 }}>
+            <div style={{ display: "flex", flexWrap: "wrap", gap: 6 }}>
               {profile.interests.map((t) => <Badge key={t}>{t}</Badge>)}
             </div>
           </div>
           <Button variant="secondary" iconLeft={<Icon name="pencil" size={15} />} onClick={() => navigate("/signup/profile", { state: { mode: "edit", profile } })}>프로필 수정</Button>
         </div>
 
-        <div style={{ display: "grid", gridTemplateColumns: "repeat(3,1fr)", gap: 16, marginBottom: 28 }}>
+        <div className="cl-mypage-stats" style={{ display: "grid", gridTemplateColumns: "repeat(3,1fr)", gap: 16, marginBottom: 28 }}>
           <Stat value={summary.participatedGroupCount} label="참여한 모임" icon={<Icon name="users" size={18} />} />
           <Stat value={`${summary.aiMatchSuccessRate}%`} label="AI 매칭 성사율" icon={<Icon name="sparkles" size={18} />} />
           <Stat
@@ -114,7 +121,7 @@ export function MyPagePage(): JSX.Element {
           />
         </div>
 
-        <div style={{ display: "grid", gridTemplateColumns: `1fr calc(var(--space-section) * 3 + var(--space-xl))`, gap: 20, alignItems: "start" }}>
+        <div className="cl-mypage-main" style={{ display: "grid", gridTemplateColumns: `1fr calc(var(--space-section) * 3 + var(--space-xl))`, gap: 20, alignItems: "start" }}>
           <div>
             <h2 style={{ margin: "0 0 var(--space-md)", fontFamily: "var(--font-sans)", fontSize: 18, fontWeight: 600, color: "var(--ink)" }}>자기소개</h2>
             <div style={{ background: "var(--surface-card)", borderRadius: "var(--radius-lg)", padding: 20, marginBottom: 24, fontFamily: "var(--font-sans)", fontSize: 15, lineHeight: 1.6, color: "var(--body)", whiteSpace: "pre-wrap" }}>
@@ -145,18 +152,33 @@ export function MyPagePage(): JSX.Element {
             startOffset={new Date(viewedMonth.getFullYear(), viewedMonth.getMonth(), 1).getDay()}
             daysInMonth={new Date(viewedMonth.getFullYear(), viewedMonth.getMonth() + 1, 0).getDate()}
             today={isCurrentMonth(viewedMonth) ? new Date().getDate() : null}
-            events={summary.activities.map((activity) => ({
-              day: Number(activity.date.slice(8, 10)),
-              label: activity.name,
-              tone: activity.status === "CONFIRMED" ? "accent" : "default",
-            }))}
-            onPrev={() => setViewedMonth((month) => new Date(month.getFullYear(), month.getMonth() - 1, 1))}
-            onNext={() => setViewedMonth((month) => new Date(month.getFullYear(), month.getMonth() + 1, 1))}
+            events={[
+              ...summary.activities.map((activity) => ({
+                day: Number(activity.date.slice(8, 10)),
+                label: `모임: ${activity.name}`,
+                tone: activity.status === "CONFIRMED" ? "accent" as const : "default" as const,
+              })),
+              ...summary.appliedEvents
+                .filter((event) => isSameMonth(event.startsAt, viewedMonth))
+                .map((event) => ({
+                  day: new Date(event.startsAt).getDate(),
+                  label: `신청 행사: ${event.title}`,
+                  tone: "accent" as const,
+                })),
+            ]}
+            onPrev={() => moveMonth(-1)}
+            onNext={() => moveMonth(1)}
           />
         </div>
+        <MyActivityOverview appliedEvents={summary.appliedEvents} myGroups={summary.myGroups} />
       </div>
     </AppShell>
   );
+}
+
+function isSameMonth(iso: string, month: Date): boolean {
+  const date = new Date(iso);
+  return date.getFullYear() === month.getFullYear() && date.getMonth() === month.getMonth();
 }
 
 function isCurrentMonth(month: Date): boolean {
