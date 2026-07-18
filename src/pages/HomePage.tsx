@@ -14,6 +14,7 @@ import defaultProfileImage from "../assets/default-profile.svg";
 import "./HomePage.css";
 
 const CATEGORIES = ["전체", "스터디", "해커톤(대회)"];
+const MIN_RECOMMENDED_MEETUP_COUNT = 5;
 
 export type MeetupData = Omit<MeetupCardProps, "style"> & {
   id: string;
@@ -192,18 +193,18 @@ export function HomePage(): JSX.Element {
       .catch((err) => console.error("추천 정보 조회 실패:", err));
   }, []);
 
-  const meetupsWithRecommendations = recommendations === null
-    ? apiMeetups
-    : recommendations.flatMap((recommendation) => {
-        if (recommendation.category !== "STUDY") return [];
-        const meetup = apiMeetups.find((item) => item.id === String(recommendation.targetId));
-        if (!meetup) return [];
-        return [{
+  const meetupsWithRecommendations = apiMeetups.map((meetup) => {
+    const recommendation = recommendations?.find(
+      (item) => item.category === "STUDY" && String(item.targetId) === meetup.id
+    );
+    return recommendation
+      ? {
           ...meetup,
           matchScore: recommendation.score,
           matchReason: recommendation.reasons.join(" "),
-        }];
-      });
+        }
+      : meetup;
+  });
 
   const eventsWithRecommendations = apiEvents.map((event) => {
     const recommendation = recommendations?.find(
@@ -218,8 +219,15 @@ export function HomePage(): JSX.Element {
       : event;
   });
 
-  let meetups = meetupsWithRecommendations;
+  let meetups = [...meetupsWithRecommendations].sort(
+    (a, b) => (b.matchScore ?? -1) - (a.matchScore ?? -1)
+  );
   if (cat !== "전체") meetups = meetups.filter((m) => m.category === cat);
+  const recommendedMeetupCount = meetups.filter((meetup) => meetup.matchScore != null).length;
+  meetups = meetups.slice(
+    0,
+    Math.max(MIN_RECOMMENDED_MEETUP_COUNT, recommendedMeetupCount)
+  );
   const sortedEvents = [...eventsWithRecommendations].sort(
     (a, b) => (b.matchScore ?? -1) - (a.matchScore ?? -1)
   );
